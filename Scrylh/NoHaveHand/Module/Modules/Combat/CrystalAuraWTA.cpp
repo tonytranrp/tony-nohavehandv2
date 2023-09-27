@@ -133,7 +133,7 @@ float calculateDamage(const vec3_t& crystalPos, C_Entity* target) {
 	return std::max(0.0f, damage);
 }
 
-bool checkTargCollision(const vec3_t& block, C_Entity* ent) {
+bool checkTargetCollision(const vec3_t& block, C_Entity* ent) {
 	vec3_t entPos = ent->getPos()->floor();
 	entPos.y -= 1;
 
@@ -199,9 +199,11 @@ struct BlockWithScore {
 
 	BlockWithScore(vec3_t* pos, float s) : position(pos), score(s) {}
 };
+
 bool compareBlockScores(const BlockWithScore& a, const BlockWithScore& b) {
 	return a.score > b.score;
 }
+
 std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
 	vec3_t entPos = ent->getPos()->floor();
 	entPos.y -= 1;
@@ -216,105 +218,74 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
 
 	std::vector<BlockWithScore> blockScores;
 
-	for (int x = -2; x <= 2; x++) {
-		for (int z = -2; z <= 2; z++) {
-			if (x != 0 || z != 0) {
-				vec3_ti block(entPos.x + x, entPos.y, entPos.z + z);
+	// Calculate the maximum distance to check for placement
+	float maxDistance = 2.5f;  // Adjust this value as needed
 
+	for (float x = -2.0f; x <= 2.0f; x += 0.5f) {
+		for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
+			for (float y = 0.0f; y >= -2.0f; y -= 0.5f) {  // Check positions below target's Y level
+				vec3_ti block(std::round(entPos.x + x), std::round(entPos.y + y), std::round(entPos.z + z));
+
+				// Calculate the center of the block for precise placement
+				vec3_t blockCenter(block.x + 0.5f, block.y + 0.5f, block.z + 0.5f);
+
+				// Check if the block is air and has line of sight to the entity
 				if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
-					if (hasEnoughAirBlocks(ent, block.toVector3())) {
-						float distanceToBlock = block.toVector3().dist(*ent->getPos());
-						float damage = calculateDamage(block.toVector3(), ent);
+					if (hasEnoughAirBlocks(ent, blockCenter) && !checkTargetCollision(blockCenter, ent)) {
+						// Adjust placement slightly downwards
+						blockCenter.y -= 0.5f;
+
+						float distanceToBlock = blockCenter.dist(*ent->getPos());
+						float damage = calculateDamage(blockCenter, ent);
 						float score = damage / distanceToBlock;
-						blockScores.push_back(BlockWithScore(vec3_t(block.x, block.y, block.z), score));
+						blockScores.push_back(BlockWithScore(blockCenter, score));
 					}
 				}
 				else if (g_Data.getLocalPlayer()->region->getBlock(vec3_ti(block.x + 1, block.y, block.z))->toLegacy()->blockId == 145) {
 					vec3_ti adjacentBlock(block.x + 1, block.y, block.z);
 
-					if (g_Data.getLocalPlayer()->region->getBlock(adjacentBlock)->toLegacy()->blockId == 0 && hasLineOfSight(adjacentBlock.toVector3(), ent)) {
-						float distanceToBlock = adjacentBlock.toVector3().dist(*ent->getPos());
-						float damage = calculateDamage(adjacentBlock.toVector3(), ent);
+					// Calculate the center of the adjacent block for precise placement
+					vec3_t adjacentBlockCenter(adjacentBlock.x + 0.5f, adjacentBlock.y + 0.5f, adjacentBlock.z + 0.5f);
+
+					if (g_Data.getLocalPlayer()->region->getBlock(adjacentBlock)->toLegacy()->blockId == 0 &&
+						hasLineOfSight(adjacentBlockCenter, ent) && !checkTargetCollision(adjacentBlockCenter, ent)) {
+
+						// Adjust placement slightly downwards
+						adjacentBlockCenter.y -= 0.5f;
+
+						float distanceToBlock = adjacentBlockCenter.dist(*ent->getPos());
+						float damage = calculateDamage(adjacentBlockCenter, ent);
 						float score = damage / distanceToBlock;
-						blockScores.push_back(BlockWithScore(vec3_t(adjacentBlock.x, adjacentBlock.y, adjacentBlock.z), score));
+						blockScores.push_back(BlockWithScore(adjacentBlockCenter, score));
 					}
 				}
 			}
 		}
 	}
-	bool isPlusXblock = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 1, entPos.y, entPos.z))->toLegacy()->blockId == 0;
-	bool isPlusXblock1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 1, entPos.y + 1, entPos.z))->toLegacy()->blockId != 0;
-
-	bool isairblockX = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 2, entPos.y, entPos.z))->toLegacy()->blockId == 0;
-	bool isairblockX1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 2, entPos.y + 2, entPos.z))->toLegacy()->blockId == 0;
-
-	bool isairblockminusX = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x - 2, entPos.y, entPos.z))->toLegacy()->blockId == 0;
-	bool isairblockminnusX1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x - 2, entPos.y + 2, entPos.z))->toLegacy()->blockId == 0;
-
-	bool isairblockZ = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y, entPos.z + 2))->toLegacy()->blockId == 0;
-	bool isairblockZ1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y + 2, entPos.z + 2))->toLegacy()->blockId == 0;
-
-	bool isairblockminusZ = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y, entPos.z - 2))->toLegacy()->blockId == 0;
-	bool isairblockminusZ1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y + 2, entPos.z - 2))->toLegacy()->blockId == 0;
-
-	bool isPlusXAnvil = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 1, entPos.y, entPos.z))->toLegacy()->blockId == 145;
-	bool isMinusXAnvil = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x - 1, entPos.y, entPos.z))->toLegacy()->blockId == 145;
-	bool isPlusZAnvil = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y, entPos.z + 1))->toLegacy()->blockId == 145;
-	bool isMinusZAnvil = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y, entPos.z - 1))->toLegacy()->blockId == 145;
 
 	// Sort blocks by score in descending order
 	std::sort(blockScores.begin(), blockScores.end(), [](const BlockWithScore& a, const BlockWithScore& b) {
 		return a.score > b.score;
 		});
-	
+
 	int maxPlacementCount = 5;
 	for (size_t i = 0; i < blockScores.size() && finalBlocks.size() < maxPlacementCount; i++) {
 		bool validPosition = true;
 
 		for (auto& placed : finalBlocks) {
-			if (blockScores[i].position.dist(placed) < 2.0f) {
+			if (blockScores[i].position.dist(placed) < 1.0f) {
 				validPosition = false;
 				break;
 			}
 		}
 
 		if (validPosition) {
-			if (isPlusXAnvil) {
-				if (isairblockX && isairblockX1) {
-					finalBlocks.push_back(vec3_t(entPos.x + 2, entPos.y, entPos.z));
-				}
-			}
-			if (isMinusXAnvil) {
-				if (isairblockminusX && isairblockminnusX1) {
-					finalBlocks.push_back(vec3_t(entPos.x - 2, entPos.y, entPos.z));
-				}
-
-			}
-			if (isPlusZAnvil) {
-				if (isairblockZ && isairblockZ1) {
-					finalBlocks.push_back(vec3_t(entPos.x, entPos.y, entPos.z + 2));
-				}
-
-			}
-			if (isMinusZAnvil) {
-				if (isairblockminusZ && isairblockminusZ1) {
-					finalBlocks.push_back(vec3_t(entPos.x, entPos.y, entPos.z - 2));
-				}
-
-			}
-
-			if (isPlusXblock && isPlusXblock1) {
-				if (isairblockX && isairblockX1) {
-					finalBlocks.push_back(vec3_t(entPos.x + 2, entPos.y, entPos.z));
-				}
-			}
 			finalBlocks.push_back(blockScores[i].position);
 		}
 	}
 
 	return finalBlocks;
 }
-
 
 
 
@@ -363,14 +334,16 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 			findCr();
 
 			std::vector<vec3_t> placementPositions = getGucciPlacement(target);
-			static float smoothing = 10.f; // 37.f;
 
-			if (g_Data.getLocalPlayer()->getSelectedItemId() == 637) {
-				for (auto& place : placementPositions) {
-					float damage = calculateDamage(place, target);
+			if (!placementPositions.empty()) {
+				// Multiplace logic
+				int numCrystalsToPlace = std::min(5, static_cast<int>(placementPositions.size()));
+
+				for (int i = 0; i < numCrystalsToPlace; i++) {
+					float damage = calculateDamage(placementPositions[i], target);
 					if (damage > 0.0f) {
-						gm->buildBlock(&vec3_ti(place.x, place.y - 1, place.z), 4);
-						placeArr.push_back(vec3_t(place.x, place.y - 1, place.z));
+						gm->buildBlock(&vec3_ti(placementPositions[i].x, placementPositions[i].y - 1, placementPositions[i].z), 4);
+						placeArr.push_back(vec3_t(placementPositions[i].x, placementPositions[i].y - 1, placementPositions[i].z));
 						hasPlaced = true;
 					}
 				}
@@ -381,18 +354,19 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 						g_Data.getCGameMode()->attack(ent);
 					}
 					});
+
+				supplies->selectedHotbarSlot = slotCA;
+				placementPositions.clear();
+
+				break; // Exit the loop after placing crystals for one target
 			}
-
-			supplies->selectedHotbarSlot = slotCA;
-			placementPositions.clear();
-
-			break; // Exit the loop after placing crystals for one target
 		}
 	}
 	else if (!targetList7.empty()) {
 		crystalDelay++;
 	}
 }
+
 void CrystalAuraWTA::onDisable() {
 	crystalDelay = 0;
 	hasPlaced = false;
