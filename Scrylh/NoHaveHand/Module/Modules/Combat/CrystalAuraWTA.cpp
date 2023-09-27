@@ -226,13 +226,15 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
 
 	// Check positions around the player in the air to find any suitable block
 	if (playerInAir) {
-		for (float x = -2.0f; x <= 2.0f; x += 0.5f) {
-			for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
+		for (float x = -2.0f; x <= 2.0f; x++) {
+			for (float z = -2.0f; z <= 2.0f; z++) {
 				vec3_ti block(std::round(entPos.x + x), std::round(entPos.y), std::round(entPos.z + z));
-				vec3_t blockCenter(block.x, block.y, block.z); // Center of the block
+				vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
+
 
 				if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
 					if (hasEnoughAirBlocks(ent, blockCenter) && !checkTargetCollision(blockCenter, ent)) {
+						blockCenter.y -= 1.0f; // Place on the block's top surface
 						float distanceToBlock = blockCenter.dist(*ent->getPos());
 						float damage = calculateDamage(blockCenter, ent);
 						float score = damage / distanceToBlock;
@@ -247,7 +249,7 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
 	for (float x = -2.0f; x <= 2.0f; x += 0.5f) {
 		for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
 			vec3_ti block(std::round(entPos.x + x), std::round(entPos.y - 1), std::round(entPos.z + z));
-			vec3_t blockCenter(block.x, block.y, block.z); // Center of the block
+			vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
 
 			if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
 				if (hasEnoughAirBlocks(ent, blockCenter) && !checkTargetCollision(blockCenter, ent)) {
@@ -337,8 +339,8 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 				for (int i = 0; i < numCrystalsToPlace; i++) {
 					float damage = calculateDamage(placementPositions[i], target);
 					if (damage > 0.0f) {
-						gm->buildBlock(&vec3_ti(placementPositions[i].x, placementPositions[i].y - 1, placementPositions[i].z), 4);
-						placeArr.push_back(vec3_t(placementPositions[i].x, placementPositions[i].y - 1, placementPositions[i].z));
+						gm->buildBlock(&vec3_ti(placementPositions[i].x, placementPositions[i].y, placementPositions[i].z), 4);
+						placeArr.push_back(vec3_t(placementPositions[i].x, placementPositions[i].y, placementPositions[i].z));
 						hasPlaced = true;
 					}
 				}
