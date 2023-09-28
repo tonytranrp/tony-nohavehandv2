@@ -22,6 +22,7 @@ public:
 	// Inherited via IModule
 	virtual const char* getModuleName();
 	virtual void onTick(C_GameMode* gm);
+	virtual void onPlayerTick(C_Player* plr);
 	//virtual void onSendPacket(Packet* packet);
 	virtual void onEnable();
 	virtual void onDisable();
