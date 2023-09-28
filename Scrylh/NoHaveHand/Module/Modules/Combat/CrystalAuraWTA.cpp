@@ -104,6 +104,25 @@ bool hasEnoughAirBlocks(C_Entity* ent, const vec3_t& pos) {
     return airBlockCount >= 2 && obsidianOrBedrockCount <= 0;
 }
 
+bool isBlockInLineOfSight(C_Entity* ent, const vec3_t& blockCenter, const vec3_t& rayDir, float maxDistance) {
+    vec3_t startPoint = ent->eyePos0; // Use the eye position vector
+    float distance = 0.0f;
+
+    while (distance <= maxDistance) {
+        vec3_ti blockPos(static_cast<int>(startPoint.x), static_cast<int>(startPoint.y), static_cast<int>(startPoint.z));
+
+        if (!isAirBlock(blockPos)) {
+            return false; // A non-air block was hit before reaching the target block
+        }
+
+        startPoint = startPoint.add(rayDir);
+        distance = startPoint.dist(ent->eyePos0); // Use the entity's eye position for distance calculation
+    }
+
+    return true; // No obstacles in the line of sight
+}
+
+
 bool hasLineOfSight(const vec3_t& crystalPos, C_Entity* target) {
     vec3_t targetPos = *target->getPos();
     vec3_t crystalEyePos = crystalPos;
@@ -114,16 +133,7 @@ bool hasLineOfSight(const vec3_t& crystalPos, C_Entity* target) {
 
     vec3_t rayDirection = crystalToTarget.normalize();
 
-    vec3_t currentPos = crystalEyePos;
-    for (double distance = 0; distance < distanceToTarget; distance += 0.5) {
-        currentPos = currentPos.add(rayDirection.mul(0.5));
-        vec3_ti blockPos(static_cast<int>(currentPos.x), static_cast<int>(currentPos.y), static_cast<int>(currentPos.z));
-        if (!isAirBlock(blockPos)) {
-            return false;
-        }
-    }
-
-    return true;
+    return isBlockInLineOfSight(target, crystalEyePos, rayDirection, distanceToTarget);
 }
 
 float calculateDamage(const vec3_t& crystalPos, C_Entity* target) {
@@ -204,6 +214,7 @@ bool compareBlockScores(const BlockWithScore& a, const BlockWithScore& b) {
     return a.score > b.score;
 }
 
+
 std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
@@ -224,6 +235,9 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
     // Determine if the player is in the air
     bool playerInAir = entPos.y != g_Data.getLocalPlayer()->getPos()->y;
 
+    // Calculate the ray direction
+    vec3_t rayDir = ent->getPointingStruct()->rayHitVec - *ent->getPos();
+
     // Check positions around the player in the air to find any suitable block
     if (playerInAir) {
         for (float x = -2.0f; x <= 2.0f; x++) {
@@ -231,8 +245,9 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
                 vec3_ti block(std::round(entPos.x + x), std::round(entPos.y), std::round(entPos.z + z));
                 vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
 
-                if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
-                    if (hasEnoughAirBlocks(ent, blockCenter) && !checkTargetCollision(blockCenter, ent)) {
+                // Perform ray tracing to check if the block is in the line of sight
+                if (isBlockInLineOfSight(ent, blockCenter, rayDir, maxDistance)) {
+                    if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
                         blockCenter.y -= 1.0f; // Place on the block's top surface
                         float distanceToBlock = blockCenter.dist(*ent->getPos());
                         float damage = calculateDamage(blockCenter, ent);
@@ -248,7 +263,7 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
     for (float x = -2.0f; x <= 2.0f; x += 0.5f) {
         for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
             vec3_ti block(std::round(entPos.x + x), std::round(entPos.y - 1), std::round(entPos.z + z));
-            vec3_t blockCenter(static_cast<float>(block.x) + 0.5f, static_cast<float>(block.y) + 0.5f, static_cast<float>(block.z) + 0.5f);
+            vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y) , static_cast<float>(block.z) );
 
             if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
                 if (hasEnoughAirBlocks(ent, blockCenter) && !checkTargetCollision(blockCenter, ent)) {
@@ -422,15 +437,7 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 void CrystalAuraWTA::onPlayerTick(C_Player* plr) {
     if (plr == nullptr) return;
    
-    if (!targetList7.empty()) {
-        std::vector<vec3_t> placementPositions = getGucciPlacement(targetList7[0]);
-        vec3_t crystalPos = placementPositions[0];
-        vec2_t angle = g_Data.getLocalPlayer()->getPos()->CalcAngle(crystalPos);
-        // vec2_t pos = g_Data.getLocalPlayer()->getPos()->CalcAngle(*i->getPos());
-        plr->yawUnused1 = angle.y;
-        plr->pitch = angle.x;
-        plr->bodyYaw = angle.y;
-    }
+    
 }
 
 void CrystalAuraWTA::onDisable() {
@@ -448,7 +455,7 @@ void CrystalAuraWTA::onPreRender(C_MinecraftUIRenderContext* renderCtx) {
 					for (auto& postt : placeArr) {
 						DrawUtils::setColor(interfaceColor.r, interfaceColor.g, interfaceColor.b, 1.f);
 
-						DrawUtils::drawBox(postt.add(0.f, 0.999f, 0.f), vec3_t(postt.x + 1.f, postt.y + 1.f, postt.z + 1.f), 0.5f, true);
+                        DrawUtils::drawBox(postt.floor(), vec3_t(floor(postt.x) + 1.f, floor(postt.y) + 1.f, floor(postt.z) + 1.f), 0.5f, true);
 					}
 					placeArr.clear();
 				}
