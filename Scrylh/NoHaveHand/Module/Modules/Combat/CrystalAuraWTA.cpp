@@ -104,44 +104,12 @@ bool hasEnoughAirBlocks(C_Entity* ent, const vec3_t& pos) {
     return airBlockCount >= 2 && obsidianOrBedrockCount <= 0;
 }
 
-bool isBlockInLineOfSight(C_Entity* ent, const vec3_t& blockCenter, const vec3_t& rayDir, float maxDistance) {
-    vec3_t startPoint = ent->eyePos0; // Use the eye position vector
-    float distance = 0.0f;
-
-    while (distance <= maxDistance) {
-        vec3_ti blockPos(static_cast<int>(startPoint.x), static_cast<int>(startPoint.y), static_cast<int>(startPoint.z));
-
-        if (!isAirBlock(blockPos)) {
-            return false; // A non-air block was hit before reaching the target block
-        }
-
-        startPoint = startPoint.add(rayDir);
-        distance = startPoint.dist(ent->eyePos0); // Use the entity's eye position for distance calculation
-    }
-
-    return true; // No obstacles in the line of sight
-}
 
 
-bool hasLineOfSight(const vec3_t& crystalPos, C_Entity* target) {
-    vec3_t targetPos = *target->getPos();
-    vec3_t crystalEyePos = crystalPos;
-    crystalEyePos.y += 1.5;
+// Function to check if a crystal can damage a target using advanced ray tracing
 
-    vec3_t crystalToTarget = targetPos.sub(crystalEyePos);
-    double distanceToTarget = crystalToTarget.length();
 
-    vec3_t rayDirection = crystalToTarget.normalize();
 
-    return isBlockInLineOfSight(target, crystalEyePos, rayDirection, distanceToTarget);
-}
-
-float calculateDamage(const vec3_t& crystalPos, C_Entity* target) {
-    float distance = crystalPos.dist(*target->getPos());
-    float LOSMultiplier = hasLineOfSight(crystalPos, target) ? 1.0f : 0.0f;
-    float damage = BASE_DAMAGE * (1.0f - DISTANCE_MULTIPLIER * distance) * LOSMultiplier;
-    return std::max(0.0f, damage);
-}
 
 bool checkTargetCollision(const vec3_t& block, C_Entity* ent) {
     vec3_t entPos = ent->getPos()->floor();
@@ -183,6 +151,56 @@ bool checkTargetCollision(const vec3_t& block, C_Entity* ent) {
 
     return false;
 }
+bool isBlockInLineOfSight(C_Entity* ent, const vec3_t& blockCenter, const vec3_t& rayDir, float maxDistance) {
+    vec3_t startPoint = ent->eyePos0; // Use the eye position vector
+    float distance = 0.0f;
+
+    while (distance <= maxDistance) {
+        vec3_ti blockPos(static_cast<int>(startPoint.x), static_cast<int>(startPoint.y), static_cast<int>(startPoint.z));
+
+        if (!isAirBlock(blockPos)) {
+            return false; // A non-air block was hit before reaching the target block
+        }
+
+        // Check if the block is within the target's hitbox
+        if (checkTargetCollision(blockPos.toVector3(), ent)) {
+            return true;
+        }
+
+        startPoint = startPoint.add(rayDir);
+        distance = startPoint.dist(ent->eyePos0); // Use the entity's eye position for distance calculation
+    }
+
+    return false; // No obstacles in the line of sight
+}
+bool canCrystalDamageTarget(const vec3_t& crystalPos, C_Entity* target, const vec3_t& rayDir, float maxDistance) {
+    vec3_t targetPos = *target->getPos();
+    vec3_t crystalEyePos = crystalPos;
+    crystalEyePos.y += 1.5;
+
+    vec3_t crystalToTarget = targetPos.sub(crystalEyePos);
+    double distanceToTarget = crystalToTarget.length();
+
+    vec3_t normalizedRayDir = rayDir; // Make a copy of rayDir
+    normalizedRayDir.normalize(); // Normalize the copy
+
+
+    vec3_t currentPos = crystalEyePos;
+    for (double distance = 0; distance < distanceToTarget; distance += 0.5) {
+        currentPos = currentPos.add(normalizedRayDir.mul(0.5));
+        vec3_ti blockPos(static_cast<int>(currentPos.x), static_cast<int>(currentPos.y), static_cast<int>(currentPos.z));
+        if (!isAirBlock(blockPos)) {
+            return false;
+        }
+
+        // Check if the distance exceeds the maximum allowed distance
+        if (distance >= maxDistance) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 bool checkSurrounded2(C_Entity* ent) {
     vec3_t entPos = ent->getPos()->floor();
@@ -202,7 +220,25 @@ bool checkSurrounded2(C_Entity* ent) {
 
     return true;
 }
+bool hasLineOfSight(const vec3_t& crystalPos, C_Entity* target) {
+    vec3_t targetPos = *target->getPos();
+    vec3_t crystalEyePos = crystalPos;
+    crystalEyePos.y += 1.5;
 
+    vec3_t crystalToTarget = targetPos.sub(crystalEyePos);
+    double distanceToTarget = crystalToTarget.length();
+
+    vec3_t rayDirection = crystalToTarget.normalize();
+
+    return isBlockInLineOfSight(target, crystalEyePos, rayDirection, distanceToTarget);
+}
+
+float calculateDamage(const vec3_t& crystalPos, C_Entity* target) {
+    float distance = crystalPos.dist(*target->getPos());
+    float LOSMultiplier = hasLineOfSight(crystalPos, target) ? 1.0f : 0.0f;
+    float damage = BASE_DAMAGE * (1.0f - DISTANCE_MULTIPLIER * distance) * LOSMultiplier;
+    return std::max(0.0f, damage);
+}
 struct BlockWithScore {
     vec3_t position;
     float score;
@@ -213,8 +249,7 @@ struct BlockWithScore {
 bool compareBlockScores(const BlockWithScore& a, const BlockWithScore& b) {
     return a.score > b.score;
 }
-
-
+// Function to calculate a list of suitable crystal placement positions
 std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
@@ -236,7 +271,7 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
     bool playerInAir = entPos.y != g_Data.getLocalPlayer()->getPos()->y;
 
     // Calculate the ray direction
-    vec3_t rayDir = ent->getPointingStruct()->rayHitVec - *ent->getPos();
+    vec3_t rayDir = ent->getPointingStruct()->rayHitVec - *ent->getPos(); // Calculate ray direction here
 
     // Check positions around the player in the air to find any suitable block
     if (playerInAir) {
@@ -245,8 +280,8 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
                 vec3_ti block(std::round(entPos.x + x), std::round(entPos.y), std::round(entPos.z + z));
                 vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
 
-                // Perform ray tracing to check if the block is in the line of sight
-                if (isBlockInLineOfSight(ent, blockCenter, rayDir, maxDistance)) {
+                // Perform advanced ray tracing to check if the crystal can damage the target
+                if (canCrystalDamageTarget(blockCenter, ent, rayDir, maxDistance)) { // Pass rayDir and maxDistance
                     if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
                         blockCenter.y -= 1.0f; // Place on the block's top surface
                         float distanceToBlock = blockCenter.dist(*ent->getPos());
@@ -263,19 +298,21 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
     for (float x = -2.0f; x <= 2.0f; x += 0.5f) {
         for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
             vec3_ti block(std::round(entPos.x + x), std::round(entPos.y - 1), std::round(entPos.z + z));
-            vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y) , static_cast<float>(block.z) );
+            vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
 
             if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
                 if (hasEnoughAirBlocks(ent, blockCenter) && !checkTargetCollision(blockCenter, ent)) {
-                    float distanceToBlock = blockCenter.dist(*ent->getPos());
-                    float damage = calculateDamage(blockCenter, ent);
-                    float score = damage / distanceToBlock;
-                    blockScores.push_back(BlockWithScore(blockCenter, score));
+                    // Perform advanced ray tracing to check if the crystal can damage the target
+                    if (canCrystalDamageTarget(blockCenter, ent, rayDir, maxDistance)) { // Pass rayDir and maxDistance
+                        float distanceToBlock = blockCenter.dist(*ent->getPos());
+                        float damage = calculateDamage(blockCenter, ent);
+                        float score = damage / distanceToBlock;
+                        blockScores.push_back(BlockWithScore(blockCenter, score));
+                    }
                 }
             }
         }
     }
-
 
     // Sort blocks by score in descending order
     std::sort(blockScores.begin(), blockScores.end(), [](const BlockWithScore& a, const BlockWithScore& b) {
@@ -311,9 +348,7 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
     }
 
     return finalBlocks;
-
 }
-
 
 bool hasPlaced = false;
 void CrystalAuraWTA::onEnable() {
