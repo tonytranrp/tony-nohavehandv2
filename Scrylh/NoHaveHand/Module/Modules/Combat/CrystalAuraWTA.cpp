@@ -142,8 +142,11 @@ bool checkTargetCollision(const vec3_t& block, C_Entity* ent) {
 
     return false;
 }
-bool isBlockInLineOfSight(C_Entity* ent, const vec3_t& blockCenter, const vec3_t& rayDir, float maxDistance) {
-    vec3_t startPoint = ent->eyePos0;
+bool isBlockInLineOfSight(const vec3_t& blockCenter, C_Entity* ent, float maxDistance) {
+    vec3_t rayDir = ent->getPos()->sub(blockCenter);
+    rayDir.normalize();
+
+    vec3_t startPoint = blockCenter;
     float distance = 0.0f;
 
     while (distance <= maxDistance) {
@@ -158,11 +161,12 @@ bool isBlockInLineOfSight(C_Entity* ent, const vec3_t& blockCenter, const vec3_t
         }
 
         startPoint = startPoint.add(rayDir);
-        distance = startPoint.dist(ent->eyePos0);
+        distance = startPoint.dist(blockCenter);
     }
 
     return false;
 }
+
 bool canCrystalDamageTarget(const vec3_t& crystalPos, C_Entity* target, const vec3_t& rayDir, float maxDistance) {
     vec3_t targetPos = *target->getPos();
     vec3_t crystalEyePos = crystalPos;
@@ -190,6 +194,8 @@ bool canCrystalDamageTarget(const vec3_t& crystalPos, C_Entity* target, const ve
     return true;
 }
 
+
+
 bool checkSurrounded2(C_Entity* ent) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
@@ -212,13 +218,15 @@ bool hasLineOfSight(const vec3_t& crystalPos, C_Entity* target) {
     vec3_t crystalEyePos = crystalPos;
     crystalEyePos.y += 1.5;
 
-    vec3_t crystalToTarget = targetPos.sub(crystalEyePos);
-    double distanceToTarget = crystalToTarget.length();
+    vec3_t rayDirection = targetPos.sub(crystalEyePos);
+    double distanceToTarget = rayDirection.length();
+    rayDirection.normalize();
 
-    vec3_t rayDirection = crystalToTarget.normalize();
-
-    return isBlockInLineOfSight(target, crystalEyePos, rayDirection, distanceToTarget);
+    return isBlockInLineOfSight(crystalEyePos, target, distanceToTarget);
 }
+
+
+
 
 float calculateDamage(const vec3_t& crystalPos, C_Entity* target) {
     float distance = crystalPos.dist(*target->getPos());
@@ -237,7 +245,7 @@ bool compareBlockScores(const BlockWithScore& a, const BlockWithScore& b) {
     return a.score > b.score;
 }
 
-std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
+std::vector<vec3_t> getGucciPlacement(C_Entity* ent, C_Entity* target) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
     std::vector<vec3_t> finalBlocks;
@@ -255,7 +263,8 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
 
     bool playerInAir = entPos.y != g_Data.getLocalPlayer()->getPos()->y;
 
-    vec3_t rayDir = ent->getPointingStruct()->rayHitVec - *ent->getPos();
+    vec3_t rayDir = target->getPos()->sub(*ent->getPos());
+    rayDir.normalize();
 
     if (playerInAir) {
         for (float x = -2.0f; x <= 2.0f; x++) {
@@ -263,7 +272,7 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
                 vec3_ti block(std::round(entPos.x + x), std::round(entPos.y), std::round(entPos.z + z));
                 vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
 
-                if (canCrystalDamageTarget(blockCenter, ent, rayDir, maxDistance)) {
+                if (isBlockInLineOfSight(blockCenter, ent, maxDistance)) {
                     if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
                         blockCenter.y -= 1.0f;
                         float distanceToBlock = blockCenter.dist(*ent->getPos());
@@ -272,6 +281,7 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
                         blockScores.push_back(BlockWithScore(blockCenter, score));
                     }
                 }
+
             }
         }
     }
@@ -284,12 +294,13 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
             if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
                 if (hasEnoughAirBlocks(ent, blockCenter) && !checkTargetCollision(blockCenter, ent)) {
 
-                    if (canCrystalDamageTarget(blockCenter, ent, rayDir, maxDistance)) {
+                    if (canCrystalDamageTarget(blockCenter, target, rayDir, maxDistance)) {
                         float distanceToBlock = blockCenter.dist(*ent->getPos());
-                        float damage = calculateDamage(blockCenter, ent);
+                        float damage = calculateDamage(blockCenter, target);
                         float score = damage / distanceToBlock;
                         blockScores.push_back(BlockWithScore(blockCenter, score));
                     }
+
                 }
             }
         }
@@ -327,6 +338,7 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent) {
 
     return finalBlocks;
 }
+
 
 bool hasPlaced = false;
 void CrystalAuraWTA::onEnable() {
@@ -372,7 +384,11 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
             C_ItemStack* item = supplies->inventory->getItemStack(0);
             findCr();
 
-            std::vector<vec3_t> placementPositions = getGucciPlacement(target);
+            
+
+            std::vector<vec3_t> placementPositions = getGucciPlacement(target, target);
+
+
 
             if (!placementPositions.empty()) {
 
