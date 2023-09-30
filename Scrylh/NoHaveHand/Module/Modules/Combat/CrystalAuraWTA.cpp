@@ -73,6 +73,8 @@ void findEntity3(C_Entity* currentEntity, bool isRegularEntity) {
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <thread>
+#include <future>
 
 const float BASE_DAMAGE = 5.0f;
 const float DISTANCE_MULTIPLIER = 0.1f;
@@ -84,17 +86,18 @@ bool isAirBlock(const vec3_ti& blockPos) {
     return blockId == 0;
 }
 
-bool hasEnoughAirBlocks(C_Entity* ent, const vec3_t& pos) {
+// Helper function to check if a block has enough air blocks around it.
+bool hasEnoughAirBlocks(const vec3_ti& blockPos, C_Entity* ent) {
     int airBlockCount = 0;
     int obsidianOrBedrockCount = 0;
 
     for (int yOffset = 0; yOffset < 2; yOffset++) {
-        vec3_ti blockPos(static_cast<int>(pos.x), static_cast<int>(pos.y + yOffset), static_cast<int>(pos.z));
-        if (isAirBlock(blockPos)) {
+        vec3_ti adjacentPos(static_cast<int>(blockPos.x), static_cast<int>(blockPos.y + yOffset), static_cast<int>(blockPos.z));
+        if (isAirBlock(adjacentPos)) {
             airBlockCount++;
         }
         else {
-            int blockId = g_Data.getLocalPlayer()->region->getBlock(blockPos)->toLegacy()->blockId;
+            int blockId = g_Data.getLocalPlayer()->region->getBlock(adjacentPos)->toLegacy()->blockId;
             if (blockId == OBSIDIAN_ID || blockId == BEDROCK_ID) {
                 obsidianOrBedrockCount++;
             }
@@ -204,7 +207,7 @@ bool checkSurrounded2(C_Entity* ent) {
         for (int z = -1; z <= 1; z++) {
             if (x != 0 || z != 0) {
                 vec3_ti block(entPos.x + x, entPos.y, entPos.z + z);
-                if (!isAirBlock(block) || !hasEnoughAirBlocks(ent, block.toVector3())) {
+                if (!isAirBlock(block) || !hasEnoughAirBlocks(block.toVector3(), ent)) {
                     return false;
                 }
             }
@@ -258,8 +261,8 @@ std::vector<vec3_t> findFloorPlacement(C_Entity* ent, C_Entity* target) {
     // Calculate the difference in height between the player and target.
     int heightDifference = static_cast<int>(entPos.y - targetPos.y);
 
-    // Search for suitable floor positions under the target.
-    for (int yOffset = 1; yOffset <= heightDifference + 1; yOffset++) {
+    // Start from the target's position and go downwards to find a suitable floor.
+    for (int yOffset = 0; yOffset < heightDifference; yOffset++) {
         vec3_ti block(targetPos.x, targetPos.y + yOffset, targetPos.z);
         auto blkID = g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId;
 
@@ -274,6 +277,13 @@ std::vector<vec3_t> findFloorPlacement(C_Entity* ent, C_Entity* target) {
     return floorBlocks;
 }
 
+// Function to calculate damage for a given crystal placement.
+float calculateDamageForCrystal(const vec3_t& crystalPos, C_Entity* target, C_Entity* ent) {
+    float distance = crystalPos.dist(*target->getPos());
+    float LOSMultiplier = hasLineOfSight(crystalPos, target) ? 1.0f : 0.0f;
+    float damage = BASE_DAMAGE * (1.0f - DISTANCE_MULTIPLIER * distance) * LOSMultiplier;
+    return std::max(0.0f, damage);
+}
 std::vector<vec3_t> getGucciPlacement(C_Entity* ent, C_Entity* target) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
@@ -294,14 +304,12 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent, C_Entity* target) {
             vec3_ti block(std::round(entPos.x + x), std::round(entPos.y), std::round(entPos.z + z));
             vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
 
-            if (isBlockInLineOfSight(blockCenter, ent, maxDistance)) {
-                if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
-                    blockCenter.y -= 1.0f;
-                    float distanceToBlock = blockCenter.dist(*ent->getPos());
-                    float damage = calculateDamage(blockCenter, ent);
-                    float score = damage / distanceToBlock;
-                    blockScores.push_back(BlockWithScore(blockCenter, score));
-                }
+            if (isBlockInLineOfSight(blockCenter, ent, maxDistance) && hasEnoughAirBlocks(block, ent) && checkSurrounded2(ent)) {
+                blockCenter.y -= 1.0f;
+                float distanceToBlock = blockCenter.dist(*ent->getPos());
+                float damage = calculateDamage(blockCenter, ent);
+                float score = damage / distanceToBlock;
+                blockScores.push_back(BlockWithScore(blockCenter, score));
             }
         }
     }
@@ -337,8 +345,6 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent, C_Entity* target) {
 
     return finalBlocks;
 }
-
-
 bool hasPlaced = false;
 void CrystalAuraWTA::onEnable() {
     crystalDelay = 0;
@@ -393,32 +399,34 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
                     return damageA > damageB;
                     });
 
-                int numCrystalsToPlace = std::min(5, static_cast<int>(placementPositions.size()));
+                int maxCrystalsToPlace = 5; // Maximum crystals to place.
 
-                if (numCrystalsToPlace >= 1) {
-                    for (int i = 0; i < numCrystalsToPlace; i++) {
-                        vec3_t crystalPos = placementPositions[i];
-                        float damage = calculateDamage(crystalPos, target);
+                for (int numCrystalsToPlace = 1; numCrystalsToPlace <= maxCrystalsToPlace; numCrystalsToPlace++) {
+                    if (numCrystalsToPlace > placementPositions.size()) {
+                        break; // No more suitable positions.
+                    }
 
-                        bool shouldPlace = true;
+                    vec3_t crystalPos = placementPositions[numCrystalsToPlace - 1];
+                    float damage = calculateDamage(crystalPos, target);
 
-                        if (shouldPlace) {
-                            gm->buildBlock(&vec3_ti(crystalPos.x, crystalPos.y, crystalPos.z), 10);
-                            placeArr.push_back(vec3_t(crystalPos.x, crystalPos.y, crystalPos.z));
-                            g_Data.forEachEntity([](C_Entity* ent, bool b) {
-                                if (targetList7.empty()) return;
-                                int id = ent->getEntityTypeId();
-                                int range = moduleMgr->getModule<CrystalAuraWTA>()->range;
-                                if (id == 71 && g_Data.getLocalPlayer()->getPos()->dist(*ent->getPos()) <= range) {
-                                    g_Data.getCGameMode()->attack(ent);
-                                    hasPlaced = false;
+                    bool shouldPlace = true; // Add your condition for placing here.
 
-                                    if (!moduleMgr->getModule<NoSwing>()->isEnabled())
-                                        g_Data.getLocalPlayer()->swingArm();
-                                }
-                                });
-                            hasPlaced = true;
-                        }
+                    if (shouldPlace) {
+                        gm->buildBlock(&vec3_ti(crystalPos.x, crystalPos.y, crystalPos.z), 10);
+                        placeArr.push_back(vec3_t(crystalPos.x, crystalPos.y, crystalPos.z));
+                        g_Data.forEachEntity([](C_Entity* ent, bool b) {
+                            if (targetList7.empty()) return;
+                            int id = ent->getEntityTypeId();
+                            int range = moduleMgr->getModule<CrystalAuraWTA>()->range;
+                            if (id == 71 && g_Data.getLocalPlayer()->getPos()->dist(*ent->getPos()) <= range) {
+                                g_Data.getCGameMode()->attack(ent);
+                                hasPlaced = false;
+
+                                if (!moduleMgr->getModule<NoSwing>()->isEnabled())
+                                    g_Data.getLocalPlayer()->swingArm();
+                            }
+                            });
+                        hasPlaced = true;
                     }
                 }
 
