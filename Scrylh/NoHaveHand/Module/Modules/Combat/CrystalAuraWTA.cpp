@@ -73,6 +73,7 @@ void findEntity3(C_Entity* currentEntity, bool isRegularEntity) {
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <iostream> // Added for debugging
 
 const float BASE_DAMAGE = 5.0f;
 const float DISTANCE_MULTIPLIER = 0.1f;
@@ -185,7 +186,6 @@ bool canCrystalDamageTarget(const vec3_t& crystalPos, C_Entity* target, const ve
     return true;
 }
 
-
 bool checkSurrounded2(C_Entity* ent) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
@@ -232,15 +232,13 @@ bool hasLineOfSight(const vec3_t& crystalPos, C_Entity* target) {
     return isBlockInLineOfSight(crystalEyePos, target, distanceToTarget);
 }
 
-
-
-
 float calculateDamage(const vec3_t& crystalPos, C_Entity* target) {
     float distance = crystalPos.dist(*target->getPos());
     float LOSMultiplier = hasLineOfSight(crystalPos, target) ? 1.0f : 0.0f;
     float damage = BASE_DAMAGE * (1.0f - DISTANCE_MULTIPLIER * distance) * LOSMultiplier;
     return std::max(0.0f, damage);
 }
+
 struct BlockWithScore {
     vec3_t position;
     float score;
@@ -280,36 +278,90 @@ std::vector<vec3_t> findFloorPlacement(C_Entity* ent, C_Entity* target) {
 
     return floorBlocks;
 }
-
-
 std::vector<vec3_t> getGucciPlacement(C_Entity* ent, C_Entity* target) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
     std::vector<vec3_t> finalBlocks;
 
-    struct BlockWithScore {
-        vec3_t position;
-        float score;
+    std::vector<BlockWithScore> blockScores;
+    vec3_t targetPos = *target->getPos();
+    vec3_t direction = targetPos.sub(*ent->getPos()).normalize();
 
-        BlockWithScore(const vec3_t& pos, float s) : position(pos), score(s) {}
+    // Set the maximum distance for placement.
+    float maxDistance = 4.0f; // You can adjust this value.
+
+    // Define the positions to prioritize (x and z offsets).
+    std::vector<vec3_ti> priorityPositions = {
+        { 1, 0, 0 },
+        { -1, 0, 0 },
+        { 0, 0, 1 },
+        { 0, 0, -1 }
     };
 
-    std::vector<BlockWithScore> blockScores;
-    float maxDistance = 2.5f;
+    // Iterate through the priority positions first.
+    for (const vec3_ti& priorityOffset : priorityPositions) {
+        vec3_ti block(static_cast<int>(entPos.x + priorityOffset.x), static_cast<int>(entPos.y), static_cast<int>(entPos.z + priorityOffset.z));
+        vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
 
-    for (float x = -2.0f; x <= 2.0f; x++) {
-        for (float z = -2.0f; z <= 2.0f; z++) {
-            vec3_ti block(std::round(entPos.x + x), std::round(entPos.y), std::round(entPos.z + z));
-            vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
-
+        // Check if the block is within the specified max distance.
+        if (blockCenter.dist(*ent->getPos()) <= maxDistance) {
             if (isBlockInLineOfSight(blockCenter, ent, maxDistance)) {
                 if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
-                    if (checkTargetCollision(blockCenter, ent)) { // Integrate checkTargetCollision.
-                        blockCenter.y -= 1.0f;
-                        float distanceToBlock = blockCenter.dist(*ent->getPos());
-                        float damage = calculateDamage(blockCenter, ent);
-                        float score = damage / distanceToBlock;
-                        blockScores.push_back(BlockWithScore(blockCenter, score));
+                    if (checkTargetCollision(blockCenter, ent)) {
+                        // Exclude placement positions that are exactly at the target position.
+                        if (blockCenter.x != targetPos.x || blockCenter.y != targetPos.y || blockCenter.z != targetPos.z) {
+                            blockCenter.y -= 1.0f;
+                            float distanceToBlock = blockCenter.dist(*ent->getPos());
+                            float damage = calculateDamage(blockCenter, ent);
+                            float score = damage / distanceToBlock;
+
+                            // Check if the block is behind the player.
+                            vec3_t blockToPlayer = entPos.sub(blockCenter).normalize();
+                            float dotProduct = blockToPlayer.dot(direction);
+
+                            // Reduce the score for blocks in front of the player.
+                            if (dotProduct < -0.5) {
+                                score *= 0.5f;
+                            }
+
+                            blockScores.push_back(BlockWithScore(blockCenter, score));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Extend the placement positions if they can damage the target and have enough air blocks.
+    for (float x = -2.0f; x <= 2.0f; x++) {
+        for (float z = -2.0f; z <= 2.0f; z++) {
+            vec3_ti block(static_cast<int>(entPos.x + x), static_cast<int>(entPos.y), static_cast<int>(entPos.z + z));
+            vec3_t blockCenter(static_cast<float>(block.x), static_cast<float>(block.y), static_cast<float>(block.z));
+
+            // Check if the block is within the specified max distance.
+            if (blockCenter.dist(*ent->getPos()) <= maxDistance) {
+                if (isBlockInLineOfSight(blockCenter, ent, maxDistance)) {
+                    if (g_Data.getLocalPlayer()->region->getBlock(block)->toLegacy()->blockId == 0) {
+                        if (checkTargetCollision(blockCenter, ent)) {
+                            // Exclude placement positions that are exactly at the target position.
+                            if (blockCenter.x != targetPos.x || blockCenter.y != targetPos.y || blockCenter.z != targetPos.z) {
+                                blockCenter.y -= 1.0f;
+                                float distanceToBlock = blockCenter.dist(*ent->getPos());
+                                float damage = calculateDamage(blockCenter, ent);
+                                float score = damage / distanceToBlock;
+
+                                // Check if the block is behind the player.
+                                vec3_t blockToPlayer = entPos.sub(blockCenter).normalize();
+                                float dotProduct = blockToPlayer.dot(direction);
+
+                                // Reduce the score for blocks in front of the player.
+                                if (dotProduct < -0.5) {
+                                    score *= 0.5f;
+                                }
+
+                                blockScores.push_back(BlockWithScore(blockCenter, score));
+                            }
+                        }
                     }
                 }
             }
@@ -356,7 +408,6 @@ std::vector<vec3_t> getGucciPlacement(C_Entity* ent, C_Entity* target) {
         }
     }
 
-
     return finalBlocks;
 }
 
@@ -368,17 +419,18 @@ void CrystalAuraWTA::onEnable() {
 void findCr() {
     C_PlayerInventoryProxy* supplies = g_Data.getLocalPlayer()->getSupplies();
     C_Inventory* inv = supplies->inventory;
-    for (int n = 0; n < 9; n++) {
+    auto prevSlot = supplies->selectedHotbarSlot;
+    for(int n = 0; n < 36; n++) {
         C_ItemStack* stack = inv->getItemStack(n);
         if (stack->item != nullptr) {
             if (stack->getItem()->itemId == 637) {
-                supplies->selectedHotbarSlot = n;
-
+                if (prevSlot != n)
+                    supplies->selectedHotbarSlot = n;
                 return;
             }
         }
     }
-
+    //if (stack->getItem()->itemId == 637) {
 }
 vec3_t espPosLower;
 vec3_t espPosUpper;
@@ -425,14 +477,28 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
                     });
 
                 // Determine how many crystals to place based on the number of available positions.
-                int numCrystalsToPlace = std::min(maxCrystalsToPlace, static_cast<int>(placementPositions.size()));
+                int numCrystalsToPlace = std::min(5, static_cast<int>(placementPositions.size()));
 
                 if (numCrystalsToPlace >= 1) {
+                    // Calculate scores for each placement position based on criteria (customize this part).
+                    std::vector<BlockWithScore> placementScores;
+
                     for (int i = 0; i < numCrystalsToPlace; i++) {
                         vec3_t crystalPos = placementPositions[i];
                         float damage = calculateDamage(crystalPos, target);
 
-                        // You can add additional checks here to determine whether to place a crystal or not.
+                        // You can add additional criteria and scoring here.
+                        float score = damage;  // For example, score based on damage.
+
+                        // Store the position and its score.
+                        placementScores.emplace_back(crystalPos, score);
+                    }
+
+                    // Sort placement positions by score (highest to lowest).
+                    std::sort(placementScores.begin(), placementScores.end(), compareBlockScores);
+
+                    for (const BlockWithScore& placement : placementScores) {
+                        vec3_t crystalPos = placement.position;
 
                         // Place the crystal if all checks pass.
                         gm->buildBlock(&vec3_ti(crystalPos.x, crystalPos.y, crystalPos.z), 10);
@@ -478,7 +544,6 @@ void CrystalAuraWTA::onDisable() {
     crystalDelay = 0;
     hasPlaced = false;
 }
-
 void CrystalAuraWTA::onPreRender(C_MinecraftUIRenderContext* renderCtx) {
     if (renderCA) {
         auto interfaceColor = ColorUtil::interfaceColor(1);
@@ -497,4 +562,3 @@ void CrystalAuraWTA::onPreRender(C_MinecraftUIRenderContext* renderCtx) {
         }
     }
 }
-

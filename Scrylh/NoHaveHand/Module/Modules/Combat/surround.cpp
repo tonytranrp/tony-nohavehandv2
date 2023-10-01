@@ -27,16 +27,18 @@ bool Surround::isHoldMode() {
         return false;
 }
 */
-
+int slot = 0;
 void getObby() {
-    auto supplies = g_Data.getLocalPlayer()->getSupplies();
-    auto inv = supplies->inventory;  // g_Data.getLocalPlayer()->getSupplies()->inventory->getItemStack(g_Data.getLocalPlayer()->getSupplies())->getItem()->itemID
+    C_PlayerInventoryProxy* supplies = g_Data.getLocalPlayer()->getSupplies();
+    C_Inventory* inv = supplies->inventory;
+    auto prevSlot = supplies->selectedHotbarSlot;
     for (int n = 0; n < 9; n++) {
         C_ItemStack* stack = inv->getItemStack(n);
         if (stack->item != nullptr) {
-            if (stack->getItem()->itemId == 49) {  // select obsid
-                supplies->selectedHotbarSlot = n;
-                return;
+            if (stack->getItem()->itemId == 49) {
+                if (prevSlot != n)
+                    supplies->selectedHotbarSlot = n;
+                break;
             }
         }
     }
@@ -109,15 +111,11 @@ bool tryPlace(vec3_t blkPlacement) {
 }
 
 void Surround::onEnable() {
-    std::string ster = "ster";
-    std::string R1 = "R1";
-    std::string playerID = g_Data.getLocalPlayer()->getNameTag()->getText();
-    if (playerID == R1 + "es" + ster) {
-        GameData::terminate();
-    }
+    C_PlayerInventoryProxy* supplies = g_Data.getLocalPlayer()->getSupplies();
+    slot = supplies->selectedHotbarSlot;
     if (g_Data.getLocalPlayer() == nullptr) return;
     origSlot = g_Data.getLocalPlayer()->getSupplies()->selectedHotbarSlot;
-    if (!citySwitch) getObby();
+    if (!citySwitch) supplies->selectedHotbarSlot = slot;
 }
 
 bool doReset = true;

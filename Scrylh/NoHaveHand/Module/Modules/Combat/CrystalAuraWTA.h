@@ -1,6 +1,7 @@
 #pragma once
 #include "../../ModuleManager.h"
 #include "../Module.h"
+#include <chrono>
 
 class CrystalAuraWTA : public IModule {
 private:
@@ -14,6 +15,7 @@ private:
 	int slotCA = 0;
 	bool renderCA = true;
 	bool oldrdca = false;
+	
 
 public:
 	CrystalAuraWTA();
