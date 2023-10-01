@@ -108,12 +108,14 @@ bool checkTargetCollision(const vec3_t& block, C_Entity* ent) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
 
+    // Check if the block is within the entity's bounding box.
     if (block.x >= entPos.x && block.x <= entPos.x + 1 &&
         block.y >= entPos.y && block.y <= entPos.y + 2 &&
         block.z >= entPos.z && block.z <= entPos.z + 1) {
         return true;
     }
 
+    // Check if the block is close to any corners of the entity's bounding box.
     std::vector<vec3_t> corners = {
         { ent->aabb.lower.x, ent->aabb.lower.y, ent->aabb.lower.z },
         { ent->aabb.lower.x, ent->aabb.lower.y, ent->aabb.upper.z },
@@ -121,27 +123,16 @@ bool checkTargetCollision(const vec3_t& block, C_Entity* ent) {
         { ent->aabb.upper.x, ent->aabb.lower.y, ent->aabb.lower.z }
     };
 
-    std::vector<std::pair<vec3_t, float>> cornerScores;
     for (const auto& corner : corners) {
-        float distance = corner.distanceTo(block);
-        cornerScores.push_back(std::make_pair(corner, distance));
-    }
-
-    std::sort(cornerScores.begin(), cornerScores.end(),
-        [](const auto& a, const auto& b) { return a.second < b.second; });
-
-    for (const auto& scorePair : cornerScores) {
-        const auto& corner = scorePair.first;
-
-        if (std::floor(corner.x) == std::floor(block.x) &&
-            std::floor(corner.y) == std::floor(block.y) &&
-            std::floor(corner.z) == std::floor(block.z)) {
+        // Check if the block is close to each corner.
+        if (block.distanceTo(corner) <= 1.0f) {
             return true;
         }
     }
 
     return false;
 }
+
 bool isBlockInLineOfSight(const vec3_t& blockCenter, C_Entity* ent, float maxDistance) {
     vec3_t rayDir = ent->getPos()->sub(blockCenter);
     rayDir.normalize();
@@ -195,11 +186,17 @@ bool canCrystalDamageTarget(const vec3_t& crystalPos, C_Entity* target, const ve
 }
 
 
-
 bool checkSurrounded2(C_Entity* ent) {
     vec3_t entPos = ent->getPos()->floor();
     entPos.y -= 1;
 
+    bool centerBlockIsAir = isAirBlock(vec3_ti(entPos.x, entPos.y, entPos.z));
+
+    if (!centerBlockIsAir) {
+        return false;  // Center block must be air.
+    }
+
+    // Check for surrounding blocks in the x and z dimensions.
     for (int x = -1; x <= 1; x++) {
         for (int z = -1; z <= 1; z++) {
             if (x != 0 || z != 0) {
@@ -211,8 +208,18 @@ bool checkSurrounded2(C_Entity* ent) {
         }
     }
 
+    // Check for enough air blocks above the entity.
+    int requiredAirBlocksAbove = 2;  // You can adjust this as needed.
+    for (int y = 1; y <= requiredAirBlocksAbove; y++) {
+        vec3_ti block(entPos.x, entPos.y + y, entPos.z);
+        if (!isAirBlock(block)) {
+            return false;
+        }
+    }
+
     return true;
 }
+
 bool hasLineOfSight(const vec3_t& crystalPos, C_Entity* target) {
     vec3_t targetPos = *target->getPos();
     vec3_t crystalEyePos = crystalPos;
@@ -378,25 +385,35 @@ vec3_t espPosUpper;
 vec3_t crystalPos;
 std::vector<vec3_t> placeArr;
 void CrystalAuraWTA::onTick(C_GameMode* gm) {
-    if (g_Data.getLocalPlayer() == nullptr) return;
-    if (isClick && !g_Data.isRightClickDown()) return;
+    // Check if the module is enabled and there is a local player.
+    if (!isEnabled() || !g_Data.getLocalPlayer())
+        return;
+
+    // Check if the right mouse button is held down (if required).
+    if (isClick && !g_Data.isRightClickDown())
+        return;
 
     targetList7.clear();
 
+    // Find potential target entities.
     g_Data.forEachEntity(findEntity3);
 
-    if (autoplace && (crystalDelay >= this->delay) && !(targetList7.empty())) {
+    // Check if there are targets to process.
+    if (autoplace && crystalDelay >= delay && !targetList7.empty()) {
         crystalDelay = 0;
 
+        // Sort the target list by distance.
         std::sort(targetList7.begin(), targetList7.end(), CompareTargetEnArray());
 
         for (auto target : targetList7) {
+            // Find crystals in the player's inventory.
             auto supplies = g_Data.getLocalPlayer()->getSupplies();
             auto inv = supplies->inventory;
             slotCA = supplies->selectedHotbarSlot;
             C_ItemStack* item = supplies->inventory->getItemStack(0);
             findCr();
 
+            // Get potential crystal placement positions.
             std::vector<vec3_t> placementPositions = getGucciPlacement(target, g_Data.getLocalPlayer());
 
             if (!placementPositions.empty()) {
@@ -407,32 +424,35 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
                     return damageA > damageB;
                     });
 
-                int numCrystalsToPlace = std::min(5, static_cast<int>(placementPositions.size()));
+                // Determine how many crystals to place based on the number of available positions.
+                int numCrystalsToPlace = std::min(maxCrystalsToPlace, static_cast<int>(placementPositions.size()));
 
                 if (numCrystalsToPlace >= 1) {
                     for (int i = 0; i < numCrystalsToPlace; i++) {
                         vec3_t crystalPos = placementPositions[i];
                         float damage = calculateDamage(crystalPos, target);
 
-                        bool shouldPlace = true;
+                        // You can add additional checks here to determine whether to place a crystal or not.
 
-                        if (shouldPlace) {
-                            gm->buildBlock(&vec3_ti(crystalPos.x, crystalPos.y, crystalPos.z), 10);
-                            placeArr.push_back(vec3_t(crystalPos.x, crystalPos.y, crystalPos.z));
-                            g_Data.forEachEntity([](C_Entity* ent, bool b) {
-                                if (targetList7.empty()) return;
-                                int id = ent->getEntityTypeId();
-                                int range = moduleMgr->getModule<CrystalAuraWTA>()->range;
-                                if (id == 71 && g_Data.getLocalPlayer()->getPos()->dist(*ent->getPos()) <= range) {
-                                    g_Data.getCGameMode()->attack(ent);
-                                    hasPlaced = false;
+                        // Place the crystal if all checks pass.
+                        gm->buildBlock(&vec3_ti(crystalPos.x, crystalPos.y, crystalPos.z), 10);
+                        placeArr.push_back(vec3_t(crystalPos.x, crystalPos.y, crystalPos.z));
 
-                                    if (!moduleMgr->getModule<NoSwing>()->isEnabled())
-                                        g_Data.getLocalPlayer()->swingArm();
-                                }
-                                });
-                            hasPlaced = true;
-                        }
+                        // Attack nearby entities if necessary.
+                        g_Data.forEachEntity([](C_Entity* ent, bool b) {
+                            if (targetList7.empty()) return;
+                            int id = ent->getEntityTypeId();
+                            int range = moduleMgr->getModule<CrystalAuraWTA>()->range;
+                            if (id == 71 && g_Data.getLocalPlayer()->getPos()->dist(*ent->getPos()) <= range) {
+                                g_Data.getCGameMode()->attack(ent);
+                                hasPlaced = false;
+
+                                if (!moduleMgr->getModule<NoSwing>()->isEnabled())
+                                    g_Data.getLocalPlayer()->swingArm();
+                            }
+                            });
+
+                        hasPlaced = true;
                     }
                 }
 
@@ -447,6 +467,7 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
         crystalDelay++;
     }
 }
+
 
 void CrystalAuraWTA::onPlayerTick(C_Player* plr) {
     if (plr == nullptr) return;
@@ -477,53 +498,3 @@ void CrystalAuraWTA::onPreRender(C_MinecraftUIRenderContext* renderCtx) {
     }
 }
 
-/*
-    bool isPlusXblock = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 1, entPos.y, entPos.z))->toLegacy()->blockId == 0;
-    bool isPlusXblock1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 1, entPos.y + 1, entPos.z))->toLegacy()->blockId != 0;
-
-    bool isairblockX = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 2, entPos.y, entPos.z))->toLegacy()->blockId == 0;
-    bool isairblockX1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 2, entPos.y + 2, entPos.z))->toLegacy()->blockId == 0;
-
-    bool isairblockminusX = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x - 2, entPos.y, entPos.z))->toLegacy()->blockId == 0;
-    bool isairblockminnusX1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x - 2, entPos.y + 2, entPos.z))->toLegacy()->blockId == 0;
-
-    bool isairblockZ = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y, entPos.z + 2))->toLegacy()->blockId == 0;
-    bool isairblockZ1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y + 2, entPos.z + 2))->toLegacy()->blockId == 0;
-
-    bool isairblockminusZ = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y, entPos.z - 2))->toLegacy()->blockId == 0;
-    bool isairblockminusZ1 = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y + 2, entPos.z - 2))->toLegacy()->blockId == 0;
-
-    bool isPlusXAnvil = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x + 1, entPos.y, entPos.z))->toLegacy()->blockId == 145;
-    bool isMinusXAnvil = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x - 1, entPos.y, entPos.z))->toLegacy()->blockId == 145;
-    bool isPlusZAnvil = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y, entPos.z + 1))->toLegacy()->blockId == 145;
-    bool isMinusZAnvil = g_Data.getLocalPlayer()->region->getBlock(vec3_ti(entPos.x, entPos.y, entPos.z - 1))->toLegacy()->blockId == 145;
-
-    if (isPlusXAnvil) {
-        if (isairblockX && isairblockX1) {
-            finalBlocks.push_back(new vec3_t(entPos.x + 2, entPos.y, entPos.z));
-        }
-    }
-    if (isMinusXAnvil) {
-        if (isairblockminusX && isairblockminnusX1) {
-            finalBlocks.push_back(new vec3_t(entPos.x - 2, entPos.y, entPos.z));
-        }
-
-    }
-    if (isPlusZAnvil) {
-        if (isairblockZ && isairblockZ1) {
-            finalBlocks.push_back(new vec3_t(entPos.x, entPos.y, entPos.z + 2));
-        }
-
-    }
-    if (isMinusZAnvil) {
-        if (isairblockminusZ && isairblockminusZ1) {
-            finalBlocks.push_back(new vec3_t(entPos.x, entPos.y, entPos.z - 2));
-        }
-
-    }
-
-    if (isPlusXblock && isPlusXblock1) {
-        if (isairblockX && isairblockX1) {
-            finalBlocks.push_back(new vec3_t(entPos.x + 2, entPos.y, entPos.z));
-        }
-    }*/
