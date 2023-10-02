@@ -1,8 +1,8 @@
 #include "Scaffold.h"
 #include "../pch.h"
 
-uintptr_t HiveRotations1 = Utils::getBase() + 0x8F3895;
-uintptr_t HiveRotations2 = Utils::getBase() + 0x8F87C7;
+static uintptr_t HiveRotations1 = Utils::getBase() + 0x8F3895;
+static uintptr_t HiveRotations2 = Utils::getBase() + 0x8F87C7;
 
 using namespace std;
 Scaffold::Scaffold() : IModule(0, Category::PLAYER, "Places blocks under you") {

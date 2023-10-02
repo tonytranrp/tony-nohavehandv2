@@ -2,7 +2,8 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
-
+static uintptr_t HiveRotations1 = Utils::getBase() + 0x8F3895;
+static uintptr_t HiveRotations2 = Utils::getBase() + 0x8F87C7;
 CrystalAuraWTA::CrystalAuraWTA() : IModule(0x0, Category::COMBAT, "CrystalAura by Tony UWU") {
     registerIntSetting("range", &range, range, 1, 10);
     registerBoolSetting("autoplace", &autoplace, autoplace);
@@ -508,11 +509,64 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 void CrystalAuraWTA::onPlayerTick(C_Player* plr) {
     if (plr == nullptr) return;
 
-}
+    C_LocalPlayer* localPlayer = g_Data.getLocalPlayer();
+    if (localPlayer != nullptr && GameData::canUseMoveKeys()) {
+        if (!targetList7.empty()) {
+            if (!placeArr.empty()) {
+                for (auto& postt : placeArr) {
+                    //std::vector<vec3_t> placementPositions = getGucciPlacement(targetList7[0], g_Data.getLocalPlayer());
+                    vec2_t angle = g_Data.getLocalPlayer()->getPos()->CalcAngle(postt.floor());
 
+
+                    localPlayer->getInterpolatedBodyYaw(angle.y);
+
+                    localPlayer->yaw = angle.y;
+                    localPlayer->pitch = angle.x;
+                    localPlayer->pointingStruct->rayHitType = 0;
+                    Utils::nopBytes((unsigned char*)HiveRotations1, 3);
+                    Utils::patchBytes((unsigned char*)HiveRotations2, (unsigned char*)"\xC7\x40\x18\x00\x00\x00\x00", 7);
+                }
+                
+            }
+        }
+    }
+}
+void CrystalAuraWTA::onSendPacket(Packet* packet) {
+    auto player = g_Data.getLocalPlayer();
+    if (player == nullptr) return;
+
+    if (!targetList7.empty()) {
+        if (!placeArr.empty()) {
+            for (auto& postt : placeArr) {
+                if (packet->isInstanceOf<C_MovePlayerPacket>() || packet->isInstanceOf<PlayerAuthInputPacket>()) {
+                    //std::vector<vec3_t> placementPositions = getGucciPlacement(targetList7[0], g_Data.getLocalPlayer());
+                    vec2_t anglefd = g_Data.getLocalPlayer()->getPos()->CalcAngle(postt.floor());
+                    auto* movePacket = reinterpret_cast<C_MovePlayerPacket*>(packet);
+
+
+
+
+                    movePacket->headYaw = anglefd.y;
+                    
+                    movePacket->yaw = anglefd.y;
+                    movePacket->pitch = anglefd.x;
+                }
+            }
+            
+        }
+    }
+    /*
+    if (packet->isInstanceOf<C_TextPacket>()) {
+        auto* textPacket = reinterpret_cast<C_TextPacket*>(packet);
+        textPacket->message = textPacket->message.getText() + std::string("| Test");
+    }
+    */
+}
 void CrystalAuraWTA::onDisable() {
     crystalDelay = 0;
     hasPlaced = false;
+    Utils::patchBytes((unsigned char*)HiveRotations1, (unsigned char*)"\x89\x41\x18", 3);
+    Utils::patchBytes((unsigned char*)HiveRotations2, (unsigned char*)"\xC7\x40\x18\x03\x00\x00\x00", 7);
 }
 void CrystalAuraWTA::onPreRender(C_MinecraftUIRenderContext* renderCtx) {
     if (renderCA) {
