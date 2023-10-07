@@ -45,6 +45,7 @@
 #include "Modules/Combat/TPAura.h"
 #include "Modules/Combat/Reach.h"
 #include "Modules/Combat/Teams.h"
+#include "Modules/Combat/AutoCity.h"
 
 // Visual
 #include "Modules/Visual/TargetVisualize.h"
@@ -140,6 +141,7 @@
 #include "Modules/Exploit/FreeTP.h"
 #include "Modules/Exploit/NoFall.h"
 #include "Modules/Exploit/Phase.h"
+#include "Modules/Exploit/Regen.h"
 
 // Other
 #include "Modules/Other/ToggleSounds.h"

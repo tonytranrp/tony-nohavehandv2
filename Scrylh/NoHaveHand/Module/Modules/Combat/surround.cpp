@@ -99,7 +99,7 @@ bool tryPlace(vec3_t blkPlacement) {
 
         if (foundCandidate) {
             // Check if there is a button below the player's feet
-           
+
 
             // Call buildBlock directly to place the block silently
             g_Data.getCGameMode()->buildBlock(&blok, i);
@@ -130,7 +130,7 @@ void placeBlockAbove(const vec3_t& blockPos) {
 
 
 void Surround::onTick(C_GameMode* gm) {
-    
+
     if (g_Data.getLocalPlayer() == nullptr) return;
 
     pn = false;

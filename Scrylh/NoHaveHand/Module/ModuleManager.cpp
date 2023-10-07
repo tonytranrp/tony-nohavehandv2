@@ -55,6 +55,7 @@ void ModuleManager::initModules() {
 		moduleList.push_back(std::shared_ptr<IModule>(new TPAura()));
 		moduleList.push_back(std::shared_ptr<IModule>(new Reach()));
 		moduleList.push_back(std::shared_ptr<IModule>(new Teams()));
+		moduleList.push_back(std::shared_ptr<IModule>(new AutoCity()));
 
 		// Visual
 		moduleList.push_back(std::shared_ptr<IModule>(new TargetVisualize()));
@@ -148,6 +149,7 @@ void ModuleManager::initModules() {
 		moduleList.push_back(std::shared_ptr<IModule>(new FreeTP()));
 		moduleList.push_back(std::shared_ptr<IModule>(new NoFall()));
 		moduleList.push_back(std::shared_ptr<IModule>(new Phase()));
+		moduleList.push_back(std::shared_ptr<IModule>(new Regen()));
 
 		// Other
 		moduleList.push_back(std::shared_ptr<IModule>(new ToggleSounds()));
@@ -157,7 +159,7 @@ void ModuleManager::initModules() {
 		moduleList.push_back(std::shared_ptr<IModule>(new ClickTP()));
 		moduleList.push_back(std::shared_ptr<IModule>(new ItemTP()));
 		//moduleList.push_back(std::shared_ptr<IModule>(new IDK()));
-//		moduleList.push_back(std::shared_ptr<IModule>(new AutoEZ()));
+		moduleList.push_back(std::shared_ptr<IModule>(new AutoEZ()));
 		moduleList.push_back(std::shared_ptr<IModule>(new Nuker()));
 		moduleList.push_back(std::shared_ptr<IModule>(new Derp()));
 		moduleList.push_back(std::shared_ptr<IModule>(new MCF()));

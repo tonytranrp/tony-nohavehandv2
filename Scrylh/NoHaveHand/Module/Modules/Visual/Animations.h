@@ -7,12 +7,18 @@ class Animations : public IModule {
 private:
     bool reset = false;
     bool swing = true;
+    bool requireswing = false;
+    bool _189 = false;
+    int SwingSpeedIndex = 0;
 public:
     float xPos = 0.f, yPos = 0.f, zPos = 0.f;
     bool shouldBlock = false;
     bool isAttacking = false;
     bool smoothSwing = false;
-
+    bool tapswing = false;
+    bool isslowSwing = false;
+    bool noswing = false;
+    float swingticks;
     // Unused
     bool translate = true;
     bool rotate = false;
@@ -22,9 +28,11 @@ public:
     float xScale = 1.f, yScale = 1.f, zScale = 1.f;
 
     std::string name = "Animations";
-    int mode = 2;
-    float swingSpeed = 0;
+    SettingEnum mode = this;
+    SettingEnum type = this;
+
     virtual void onPlayerTick(C_Player* plr);
+    virtual const char* getRawModuleName();
     virtual const char* getModuleName();
     virtual void onTick(C_GameMode* gm);
     virtual void onDisable();

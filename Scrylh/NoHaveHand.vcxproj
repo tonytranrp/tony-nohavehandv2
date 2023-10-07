@@ -273,8 +273,10 @@
 		<ClCompile Include="NoHaveHand\Module\Modules\Combat\surround.cpp" />
 		<ClCompile Include="NoHaveHand\Module\Modules\Combat\Switcher2.cpp" />
 		<ClCompile Include="NoHaveHand\Module\Modules\Combat\TargetDown.cpp" />
+		<ClCompile Include="NoHaveHand\Module\Modules\Combat\AutoCity.cpp" />
 
 		<ClCompile Include="NoHaveHand\Module\Modules\Exploit\EntityFly.cpp" />
+		<ClCompile Include="NoHaveHand\Module\Modules\Exploit\Regen.cpp" />
 		<ClCompile Include="NoHaveHand\Module\Modules\Exploit\FastUse.cpp" />
 		<ClCompile Include="NoHaveHand\Module\Modules\Exploit\NoLagBack.cpp" />
 		<ClCompile Include="NoHaveHand\Module\Modules\Exploit\PhaseForAntiAnvil.cpp" />
@@ -550,6 +552,7 @@
 		<ClInclude Include="NoHaveHand\Module\Modules\Visual\Animations.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Combat\AntiBot.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Combat\pvpResources.h" />
+		<ClInclude Include="NoHaveHand\Module\Modules\Combat\AutoCity.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Exploit\AntiImmobile.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Movement\AntiVoid.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Combat\AutoClicker.h" />
@@ -605,6 +608,7 @@
 		<ClInclude Include="NoHaveHand\Module\Modules\Module.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Visual\NameTags.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Exploit\NoFall.h" />
+		<ClInclude Include="NoHaveHand\Module\Modules\Exploit\Regen.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Movement\NoSlow.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Player\NoSwing.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Other\Nuker.h" />
