@@ -10,19 +10,32 @@ const char* cascaffold::getModuleName() {
 	return ("cascaffold");
 }
 
+int silentSlot = 0; // Initialize the silent slot variable
+
 void cascaffold::findObsi() {
 	C_PlayerInventoryProxy* supplies = g_Data.getLocalPlayer()->getSupplies();
 	C_Inventory* inv = supplies->inventory;
+
+	// Remember the original selected slot
+	int originalSlot = supplies->selectedHotbarSlot;
+
+	// Switch to the silent slot
+	supplies->selectedHotbarSlot = silentSlot;
+
 	for (int n = 0; n < 9; n++) {
 		C_ItemStack* stack = inv->getItemStack(n);
 		if (stack->item != nullptr) {
 			if (stack->getItem()->itemId == 49) {
-				supplies->selectedHotbarSlot = n;
+				// Found obsidian in the silent slot, keep track of it
+				silentSlot = n;
+
 				break;
 			}
 		}
 	}
-	//supplies->selectedHotbarSlot = slot;
+
+	// Restore the original selected slot
+	supplies->selectedHotbarSlot = originalSlot;
 }
 struct CompareTargetEnArray {
 	bool operator()(C_Entity* lhs, C_Entity* rhs) {

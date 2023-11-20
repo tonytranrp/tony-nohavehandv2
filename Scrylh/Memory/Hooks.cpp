@@ -25,7 +25,10 @@ void blockRotate(glm::mat4& matrix, float upper) {
 	matrix = glm::rotate<float>(matrix, 60.0F, glm::vec3(0.0F, 1.0F, 0.0F));
 }
 
-void slideBlockRotate(glm::mat4& matrix, float upper) {
+void slideBlockRotate(glm::mat4& matrix, float upper, float rollAngle) {
+	matrix = glm::rotate<float>(matrix, rollAngle, glm::vec3(0.0F, 0.0F, 1.0F));
+
+	// Additional rotations
 	matrix = glm::translate<float>(matrix, glm::vec3(-0.5F, upper, 0.0F));
 	matrix = glm::rotate<float>(matrix, 30.0F, glm::vec3(0.0F, 1.0F, 0.0F));
 	matrix = glm::rotate<float>(matrix, -80.0F, glm::vec3(1.0F, 0.0F, 0.0F));
@@ -231,18 +234,33 @@ void Hooks::Init() {
 				if (animations->scale)
 					matrix = glm::scale<float>(matrix, glm::vec3(animations->xScale, animations->yScale, animations->zScale)); // SCALE
 
-				if (animations->rotate)
-					matrix = glm::rotate<float>(matrix, degrees, glm::vec3(animations->xRotate, animations->yRotate, animations->zRotate)); // idk unused
+				// Spinning Animation
+				if (animations->rotate) {
+					float spinSpeed = 2.0f; // Adjust the speed of the spin
+					float spinAngle = fmodf(degrees + lerpT * spinSpeed * 360.0f, 360.0f);
+					matrix = glm::rotate<float>(matrix, spinAngle, glm::vec3(animations->xRotate, animations->yRotate, animations->zRotate));
+				}
 
 				if (animations->shouldBlock && g_Data.canUseMoveKeys() && g_Data.isInGame() && !clickGUI->isEnabled()) {
-					// Slide
-					matrix = glm::translate<float>(matrix, glm::vec3(0.42222223281, 0.0, -0.16666666269302368));
-					matrix = glm::translate<float>(matrix, glm::vec3(-0.15f, 0.15f, -0.2f));
-					slideBlockRotate(matrix, 0.2f);
+					// Slowly spinning animation when blocking
+					static float rotationAngle = 0.0f;  // Keep track of rotation angle
+					rotationAngle += 0.01f;  // Adjust the rotation speed as needed
+
+					// Apply slow spinning animation
+					matrix = glm::rotate<float>(matrix, rotationAngle, glm::vec3(0.0F, 1.0F, 0.0F));
+
+					// Roll angle for the rolling animation
+					static float rollAngle = 0.0f;  // Keep track of roll angle
+					rollAngle += 0.005f;  // Adjust the roll speed as needed
+
+					// Apply rolling animation
+					slideBlockRotate(matrix, 0.2f, rollAngle);
 				}
+
 			}
 			return origFunc(_this, matrix, lerpT);
 		};
+
 		
 		shared_ptr<FuncHook> bobViewHook = make_shared<FuncHook>(levelRendererBobView, (decltype(&bobViewHookF.operator()))bobViewHookF);
 

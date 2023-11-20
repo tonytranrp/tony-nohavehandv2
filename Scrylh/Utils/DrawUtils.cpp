@@ -238,7 +238,29 @@ void DrawUtils::drawText(vec2_t pos, std::string* textStr, MC_Color color, float
 void DrawUtils::drawCenteredString(vec2_t pos, std::string* textStr, float textSize, MC_Color color, bool hasShadow) {
 	DrawUtils::drawText(vec2_t(pos.x - DrawUtils::getTextWidth(textStr, textSize) / 2.F, pos.y - DrawUtils::getFont(Fonts::SMOOTH)->getLineHeight() / 2.F), textStr, color, textSize, 1, hasShadow);
 }
+void DrawUtils::drawTextInWorld(std::string* textToSay, const vec3_t& location, float tsize, vec3_ti tColor, vec3_ti bgColor, float opacity) {
+	vec2_t textPos;
+	vec4_t rectPos;
 
+	float textWidth = getTextWidth(textToSay, tsize);
+	float textHeight = DrawUtils::getFont(Fonts::SMOOTH)->getLineHeight() * tsize;
+	vec3_t pos = vec3_t(0.5f, 0.5f, 0.5f);
+	vec3_t actualLocation = location.add(pos);
+
+	if (refdef->OWorldToScreen(origin, actualLocation, textPos, fov, screenSize)) {
+		textPos.y -= textHeight;
+		textPos.x -= textWidth / 2.f;
+		rectPos.x = textPos.x - 1.f * tsize;
+		rectPos.y = textPos.y - 1.f * tsize;
+		rectPos.z = textPos.x + textWidth + 1.f * tsize;
+		rectPos.w = textPos.y + textHeight + 2.f * tsize;
+		vec4_t subRectPos = rectPos;
+		subRectPos.y = subRectPos.w - 1.f * tsize;
+		fillRectangle(rectPos, MC_Color(bgColor.x, bgColor.y, bgColor.z), opacity);
+
+		drawText(textPos, textToSay, MC_Color(tColor.x, tColor.y, tColor.z), tsize);
+	}
+}
 void DrawUtils::drawRightAlignedString(std::string* textStr, vec4_t pos, MC_Color color, bool hasShadow) {
 	TextHolder text(*textStr);
 	std::string test = text.getText();

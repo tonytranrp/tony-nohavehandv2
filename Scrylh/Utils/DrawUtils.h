@@ -106,7 +106,7 @@ public:
 		lineWidth /= 2;
 		fillRectangle(vec4_t(pos.x - lineWidth, pos.w - lineWidth, pos.z + lineWidth, pos.w + lineWidth), col, alpha);
 	}
-
+	static void drawTextInWorld(std::string* textToSay, const vec3_t& location, float tsize, vec3_ti tColor, vec3_ti bgColor, float opacity);
 	static void drawCircle(vec4_t(pos), MC_Color col);
 	static void drawImage(std::string filePath, vec2_t& imagePos, vec2_t& imageDimension, vec2_t& idk, vec2_t& idk2, MC_Color flushColor = MC_Color(255.f, 255.f, 255.f));
 	static void drawText(vec2_t pos, std::string* text, MC_Color color, float textSize = 1.f, float alpha = 1.f, bool hasShadow = false, Fonts font = Fonts::SMOOTH);

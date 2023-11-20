@@ -5,6 +5,7 @@
 void* SmoothSwing = (void*)FindSignature("0F 84 ? ? ? ? 48 8B 56 ? 48 85 D2 74 ? 48 8B 02");
 void* TapAddress = (void*)FindSignature("F3 0F 51 F0 0F 28 C8");
 using namespace std;
+bool slowSwing = false;
 Animations::Animations() : IModule(0, Category::VISUAL, "Changes the swing/hitting animation") {
 	registerEnumSetting("Mode", &mode, 0);
 	mode.addEntry("None", 0);
@@ -19,11 +20,11 @@ Animations::Animations() : IModule(0, Category::VISUAL, "Changes the swing/hitti
 	type.addEntry("None", 0);
 	type.addEntry("Flux", 1);
 	type.addEntry("Tap", 2);
-	//type.addEntry("Exhi", 3);
-	//registerBoolSetting("TapSwing", &tapswing, tapswing);
+	type.addEntry("Exhi", 3);
+	registerBoolSetting("TapSwing", &tapswing, tapswing);
 	registerBoolSetting("NoSwing", &noswing, noswing);
-	//registerBoolSetting("NoSwingV2", &slowSwing, slowSwing);
-	//registerBoolSetting("Swing", &swing, swing);
+	registerBoolSetting("NoSwingV2", &slowSwing, slowSwing);
+	registerBoolSetting("Swing", &swing, swing);
 	registerBoolSetting("Reset", &reset, reset);
 	registerFloatSetting("X", &xPos, xPos, -3.f, 3.f);
 	registerFloatSetting("Y", &yPos, yPos, -3.f, 3.f);
@@ -56,7 +57,7 @@ void Animations::onTick(C_GameMode* gm) {
 	requireswing = false;
 
 	auto slot = player->getSupplies()->inventory->getItemStack(player->getSupplies()->selectedHotbarSlot);
-	shouldBlock = slot != nullptr && slot->item != nullptr && slot->getItem()->isWeapon() && g_Data.isRightClickDown() || slot != nullptr && slot->item != nullptr && slot->getItem()->isWeapon() && !killaura->targetListEmpty && killaura->isEnabled();
+	shouldBlock = slot != nullptr && slot->item != nullptr && g_Data.isRightClickDown() || slot != nullptr && slot->item != nullptr && !killaura->targetListEmpty && killaura->isEnabled();
 	isAttacking = g_Data.isLeftClickDown() || (!killaura->targetListEmpty && killaura->isEnabled());
 
 	if (type.getSelectedValue() == 3) {
@@ -116,12 +117,12 @@ void Animations::onPlayerTick(C_Player* plr) {
 		}
 	}
 
-	//if (slowSwing && !g_Hooks.isThirdPerson) { float* speedAdr = reinterpret_cast<float*>(reinterpret_cast<__int64>(player) + 0x79C); *speedAdr = swingticks; }
+	if (slowSwing && !g_Hooks.isThirdPerson) { float* speedAdr = reinterpret_cast<float*>(reinterpret_cast<__int64>(player) + 0x79C); *speedAdr = swingticks; }
 	if (noswing && !g_Hooks.isThirdPerson) { float* speedAdr = reinterpret_cast<float*>(reinterpret_cast<__int64>(player) + 0x79C); *speedAdr = 0; }
 
-	if (mode.getSelectedValue() == 5 && shouldBlock) { float* speedAdr = reinterpret_cast<float*>(reinterpret_cast<__int64>(player) + 0x79C); *speedAdr = 29; }
+	if (mode.getSelectedValue() == 5 && shouldBlock) { float* speedAdr = reinterpret_cast<float*>(reinterpret_cast<__int64>(player) + 0x80C); *speedAdr = 29; }
 
-	if (isAttacking && shouldBlock && mode.getSelectedValue() == 2 && !g_Hooks.isThirdPerson) { float* speedAdr = reinterpret_cast<float*>(reinterpret_cast<__int64>(player) + 0x79C); *speedAdr = swingSpeed; }
+	if (isAttacking && shouldBlock && mode.getSelectedValue() == 2 && !g_Hooks.isThirdPerson) { float* speedAdr = reinterpret_cast<float*>(reinterpret_cast<__int64>(player) + 0x80C); *speedAdr = 90; }
 }
 
 void Animations::onDisable() {
