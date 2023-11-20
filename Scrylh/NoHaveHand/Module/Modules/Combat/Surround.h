@@ -11,18 +11,18 @@ private:
 
 public:
 	inline bool checkCornerHitboxCollision(vec3_t* block, C_Entity* ent) {
-		std::vector<vec3_t*> corners;
+		std::vector<vec3_t> corners;
 		corners.clear();
 
-		corners.push_back(new vec3_t(ent->aabb.lower.x, ent->aabb.lower.y, ent->aabb.lower.z));
-		corners.push_back(new vec3_t(ent->aabb.lower.x, ent->aabb.lower.y, ent->aabb.upper.z));
-		corners.push_back(new vec3_t(ent->aabb.upper.x, ent->aabb.lower.y, ent->aabb.upper.z));
-		corners.push_back(new vec3_t(ent->aabb.upper.x, ent->aabb.lower.y, ent->aabb.lower.z));
+		corners.push_back(vec3_t(ent->aabb.lower.x, ent->aabb.lower.y, ent->aabb.lower.z));
+		corners.push_back(vec3_t(ent->aabb.lower.x, ent->aabb.lower.y, ent->aabb.upper.z));
+		corners.push_back(vec3_t(ent->aabb.upper.x, ent->aabb.lower.y, ent->aabb.upper.z));
+		corners.push_back(vec3_t(ent->aabb.upper.x, ent->aabb.lower.y, ent->aabb.lower.z));
 
 		if (ent->getEntityTypeId() != 319) {
 			if (!corners.empty()) {
 				for (auto corner : corners) {
-					if ((floor(corner->x) == floor(block->x)) && (floor(corner->y) == floor(block->y)) && (floor(corner->z) == floor(block->z))) {
+					if ((floor(corner.x) == floor(block->x)) && (floor(corner.y) == floor(block->y)) && (floor(corner.z) == floor(block->z))) {
 						return true;
 					}
 				}

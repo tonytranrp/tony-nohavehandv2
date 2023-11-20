@@ -299,66 +299,32 @@ float CrystalAuraWTA::getBlastDamageEnchantReduction(C_ItemStack* armor) {
 	return epf;
 }
 
-#include <cmath>
-#include <algorithm>
-float getVisibility(const vec3_t& position, const AABB& targetAABB) {
-	using getSeenPercent_t = float(__fastcall*)(C_BlockSource*, vec3_t const&, AABB const&);
-	static getSeenPercent_t getSeenPercent = reinterpret_cast<getSeenPercent_t>(
-		FindSignature("40 53 55 41 56 48 81 ec ? ? ? ? 48 8b 05 ? ? ? ? 48 33 c4 48 89 84 24"));
-	vec3_t pos = vec3_t(0.5f, 0.f, 0.5f);
-	return getSeenPercent(g_Data.getLocalPlayer()->region, position.add(pos), targetAABB);
-}
 std::vector<CrystalPlacements> CrystalAuraWTA::generateValidPlacements(C_Entity* target, int yOffset) {
 	vec3_t targetPos = target->getHumanPos().floor();
 	targetPos = vec3_t(targetPos.x, targetPos.y + (float)yOffset, targetPos.z);
 
-	std::vector<CrystalPlacements> validPlacements;
+	std::vector<CrystalPlacements> bunchashit;
 
-	// Spiral search parameters
-	int radius = maxProximity;
-	int x = 0, y = 0;
-	int dx = 0, dy = -1;
+	for (int i = 0; i < maxProximity * maxProximity; i++) {
+		int x = i % (2 * maxProximity) - maxProximity;
+		int z = i / (2 * maxProximity) - maxProximity;
 
-	for (int i = 0; i < (2 * maxProximity + 1) * (2 * maxProximity + 1); ++i) {
-		vec3_t search = targetPos.add(x, 0, y);
+		vec3_t search = targetPos.add(x, 0, z);
+		if (search.dist(target->getHumanPos()) < maxProximity &&
+			target->getHumanPos().floor() != search &&
+			isPlaceValid(search, target)) {
 
-		if (search.dist(target->getHumanPos()) < maxProximity && target->getHumanPos().floor() != search) {
-			if (isPlaceValid(search, target)) {
-				validPlacements.emplace_back(search, computeExplosionDamage(search, target, target->region), computeExplosionDamage(search, g_Data.getLocalPlayer(), g_Data.getLocalPlayer()->region));
+			CrystalPlacements me;
+			me.toPlace = search;
+			me.enemyDmg = computeExplosionDamage(search, target, target->region);
+			me.selfDmg = computeExplosionDamage(search, g_Data.getLocalPlayer(), g_Data.getLocalPlayer()->region);
 
-			}
+			bunchashit.push_back(me);
 		}
-
-		if (x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y)) {
-			std::swap(dx, dy);
-		}
-
-		x += dx;
-		y += dy;
 	}
 
-	// Sort the valid placements based on custom criteria
-	auto cmpCustom = [target](const CrystalPlacements& E1, const CrystalPlacements& E2) {
-		float distanceE1 = E1.toPlace.distanceTo(*target->getPos());
-		float distanceE2 = E2.toPlace.distanceTo(*target->getPos());
-
-		float visibility1 = getVisibility(E1.toPlace, target->aabb);
-		float visibility2 = getVisibility(E2.toPlace, target->aabb);
-
-		if (visibility1 != visibility2)
-			return visibility1 > visibility2;
-
-		if (distanceE1 != distanceE2)
-			return distanceE1 < distanceE2;
-
-		return E1.enemyDmg > E2.enemyDmg;
-	};
-
-	std::sort(validPlacements.begin(), validPlacements.end(), cmpCustom);
-
-	return validPlacements;
+	return bunchashit;
 }
-
 
 bool cmpPlacements(CrystalPlacements E1, CrystalPlacements E2) {
 	bool cmpType = moduleMgr->getModule<CrystalAuraWTA>()->safetyFirst;
@@ -383,15 +349,20 @@ bool cmpDup(CrystalPlacements E1, CrystalPlacements E2) {
 		return E1.selfDmg < E2.selfDmg;
 	}
 }
-
+float getVisibility(const vec3_t& position, const AABB& targetAABB) {
+	using getSeenPercent_t = float(__fastcall*)(C_BlockSource*, vec3_t const&, AABB const&);
+	static getSeenPercent_t getSeenPercent = reinterpret_cast<getSeenPercent_t>(
+		FindSignature("40 53 55 41 56 48 81 ec ? ? ? ? 48 8b 05 ? ? ? ? 48 33 c4 48 89 84 24"));
+	vec3_t pos = vec3_t(0.5f, 0.f, 0.5f);
+	return getSeenPercent(g_Data.getLocalPlayer()->region, position.add(pos), targetAABB);
+}
 CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 	std::vector<CrystalPlacements> validShit = generateValidPlacements(targ, yLevel);
 
 	if (validShit.empty()) {
-		CrystalPlacements placeholder;
-		placeholder.enemyDmg = -42069;
-		return placeholder;
-
+		CrystalPlacements anEmptyValue;
+		anEmptyValue.enemyDmg = -42069;
+		return anEmptyValue;
 	}
 
 	auto cmpCustom = [targ](const CrystalPlacements& E1, const CrystalPlacements& E2) {
@@ -416,7 +387,7 @@ CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 	std::vector<CrystalPlacements> dups;
 
 	if (safetyFirst) {
-		for (const auto& i : validShit) {
+		for (const CrystalPlacements& i : validShit) {
 			hl = i.selfDmg;
 			if (i.selfDmg == hl) {
 				dups.push_back(i);
@@ -427,7 +398,7 @@ CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 		}
 	}
 	else {
-		for (const auto& i : validShit) {
+		for (const CrystalPlacements& i : validShit) {
 			hl = i.enemyDmg;
 			if (i.enemyDmg == hl) {
 				dups.push_back(i);
@@ -442,12 +413,12 @@ CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 		return dups[0];
 
 	std::sort(dups.begin(), dups.end(), cmpDup);
+	using getSeenPercent_t = float(__fastcall*)(C_BlockSource*, vec3_t const&, AABB const&);
+	static getSeenPercent_t getSeenPercent = reinterpret_cast<getSeenPercent_t>(FindSignature("40 53 55 41 56 48 81 ec ? ? ? ? 48 8b 05 ? ? ? ? 48 33 c4 48 89 84 24"));
 
-	for (const auto& dup : dups) {
-		using getSeenPercent_t = float(__fastcall*)(C_BlockSource*, vec3_t const&, AABB const&);
-		static getSeenPercent_t getSeenPercent = reinterpret_cast<getSeenPercent_t>(
-			FindSignature("40 53 55 41 56 48 81 ec ? ? ? ? 48 8b 05 ? ? ? ? 48 33 c4 48 89 84 24"));
+	for (const CrystalPlacements& dup : dups) {
 		vec3_t block = dup.toPlace;
+
 		float exposure = getSeenPercent(g_Data.getLocalPlayer()->region, block.add(0.5f, 0.f, 0.5f), targ->aabb);
 
 		if (exposure > 0.5f && !checkCornerHitboxCollision(block, targ)) {
@@ -458,21 +429,33 @@ CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 	return dups[0];
 }
 
-
 #include <algorithm>
 
 bool cmpAgain(CrystalPlacements E1, CrystalPlacements E2) {
 	return E1.enemyDmg > E2.enemyDmg;
 }
+
 CrystalPlacements CrystalAuraWTA::CrystalAuraJTWD(C_Entity* target) {
 	const int maxVOff = (facePlaceType.GetSelectedEntry().GetValue() == 1 ? 1 : 3);
 	const int minVOff = -5;
 
 	std::vector<CrystalPlacements> validPlacements;
 
+	auto calculatePlacement = [this](C_Entity* target, int vOffset) -> CrystalPlacements {
+		CrystalPlacements placement = bestPlaceOnPlane(target, vOffset);
+		if (placement.enemyDmg != -42069) {
+			return placement;
+		}
+		else {
+
+			return { };
+		}
+	};
+
 #pragma omp parallel for
 	for (int vOffset = minVOff; vOffset < maxVOff; ++vOffset) {
-		auto placement = bestPlaceOnPlane(target, vOffset);
+		CrystalPlacements placement = calculatePlacement(target, vOffset);
+
 #pragma omp critical
 		{
 			if (placement.enemyDmg != -42069) {
@@ -482,13 +465,11 @@ CrystalPlacements CrystalAuraWTA::CrystalAuraJTWD(C_Entity* target) {
 	}
 
 	if (validPlacements.empty()) {
-		CrystalPlacements placeholder;
-		placeholder.enemyDmg = -42069;
-		return{ placeholder};
+
+		return { };
 	}
 
-
-	auto advancedComparator = [target](const auto& place1, const auto& place2) {
+	auto advancedComparator = [target](const CrystalPlacements& place1, const CrystalPlacements& place2) {
 		float distance1 = place1.toPlace.distanceTo(*target->getPos());
 		float distance2 = place2.toPlace.distanceTo(*target->getPos());
 
@@ -506,11 +487,17 @@ CrystalPlacements CrystalAuraWTA::CrystalAuraJTWD(C_Entity* target) {
 		return place1.enemyDmg > place2.enemyDmg;
 	};
 
-	std::sort(validPlacements.begin(), validPlacements.end(), advancedComparator);
+#pragma omp parallel sections
+	{
+#pragma omp section
+		{
+
+			std::sort(validPlacements.begin(), validPlacements.end(), advancedComparator);
+		}
+	}
 
 	return validPlacements[0];
 }
-
 
 bool compareTargListVec(C_Entity* E1, C_Entity* E2) {
 	int whatToCompare = moduleMgr->getModule<CrystalAuraWTA>()->priority.GetSelectedEntry().GetValue();

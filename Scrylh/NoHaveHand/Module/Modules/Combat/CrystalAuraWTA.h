@@ -6,16 +6,7 @@ struct CrystalPlacements {
 	vec3_t toPlace;
 	float enemyDmg = 0.f;
 	float selfDmg = 0.f;
-
-	// Default constructor
-	CrystalPlacements() = default;
-
-	// Constructor with three arguments
-	CrystalPlacements(vec3_t place, float enemyDamage, float selfDamage)
-		: toPlace(place), enemyDmg(enemyDamage), selfDmg(selfDamage) {}
 };
-
-
 
 struct CrystalInfo {
 	CrystalPlacements CPlacements;
