@@ -299,18 +299,24 @@ float CrystalAuraWTA::getBlastDamageEnchantReduction(C_ItemStack* armor) {
 	return epf;
 }
 
+#include <cmath>
+
 std::vector<CrystalPlacements> CrystalAuraWTA::generateValidPlacements(C_Entity* target, int yOffset) {
 	vec3_t targetPos = target->getHumanPos().floor();
 	targetPos = vec3_t(targetPos.x, targetPos.y + (float)yOffset, targetPos.z);
 
 	std::vector<CrystalPlacements> bunchashit;
 
+	int radius = maxProximity;
+	int x = 0, z = 0;
+	int dx = 0, dz = -1;
+
 	for (int i = 0; i < maxProximity * maxProximity; i++) {
-		int x = i % (2 * maxProximity) - maxProximity;
-		int z = i / (2 * maxProximity) - maxProximity;
+		x += dx;
+		z += dz;
 
 		vec3_t search = targetPos.add(x, 0, z);
-		if (search.dist(target->getHumanPos()) < maxProximity &&
+		if (search.dist(target->getHumanPos()) < radius &&
 			target->getHumanPos().floor() != search &&
 			isPlaceValid(search, target)) {
 
@@ -321,10 +327,26 @@ std::vector<CrystalPlacements> CrystalAuraWTA::generateValidPlacements(C_Entity*
 
 			bunchashit.push_back(me);
 		}
+
+		if (x == z || (x < 0 && x == -z) || (x > 0 && x == 1 - z)) {
+			// Change direction if necessary
+			int temp = dx;
+			dx = -dz;
+			dz = temp;
+		}
+
+		if (std::abs(x) >= std::abs(z)) {
+			dx = (x > 0) ? -1 : 1;
+		}
+		else {
+			dz = (z > 0) ? -1 : 1;
+		}
 	}
 
 	return bunchashit;
 }
+
+
 
 bool cmpPlacements(CrystalPlacements E1, CrystalPlacements E2) {
 	bool cmpType = moduleMgr->getModule<CrystalAuraWTA>()->safetyFirst;
