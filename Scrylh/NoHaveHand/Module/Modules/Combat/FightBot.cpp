@@ -59,7 +59,7 @@ void findadEntity(C_Entity* currentEntity, bool isRegularEntity) {
 		if (currentEntity->getEntityTypeId() == 69)  // xp
 			return;
 	} else {
-		if (!Target::isValidTarget(currentEntity))
+		if (!TargetUtil::isValidTarget(currentEntity))
 			return;
 	}
 
@@ -134,7 +134,7 @@ void FightBot::onLevelRender() {
 			if (sexy) {
 				joe = g_Data.getLocalPlayer()->getPos()->CalcAngle(*targetList[0]->getPos()).normAngles();
 				C_LocalPlayer* player = g_Data.getLocalPlayer();
-				vec2 angle = g_Data.getLocalPlayer()->getPos()->CalcAngle(*targetList[0]->getPos()).normAngles();
+				vec2_t angle = g_Data.getLocalPlayer()->getPos()->CalcAngle(*targetList[0]->getPos()).normAngles();
 				player->bodyYaw = angle.x;
 				player->bodyYaw = angle.y;
 			}
@@ -186,14 +186,6 @@ void FightBot::onSendPacket(C_Packet* packet) {
 		targetList.clear();
 		g_Data.forEachEntity(findadEntity);
 		std::sort(targetList.begin(), targetList.end(), CompareTargetEnArray());
-		if (packet->isInstanceOf<C_MovePlayerPacket>() && g_Data.getLocalPlayer() != nullptr && silent) {
-			if (!targetList.empty()) {
-				auto* movePacket = reinterpret_cast<C_MovePlayerPacket*>(packet);
-				vec2 angle = g_Data.getLocalPlayer()->getPos()->CalcAngle(*targetList[0]->getPos());
-				movePacket->pitch = angle.x;
-				movePacket->headYaw = angle.y;
-				movePacket->yaw = angle.y;
-			}
-		}
+		
 	}
 }

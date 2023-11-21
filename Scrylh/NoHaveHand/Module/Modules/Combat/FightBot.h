@@ -1,7 +1,7 @@
 #pragma once
-#include "../../../Utils/Target.h"
-#include "../ModuleManager.h"
-#include "Module.h"
+#include "../../../../Utils/TargetUtil.h"
+#include "../../ModuleManager.h"
+#include "../Module.h"
 
 class FightBot : public IModule {
 private:
@@ -20,7 +20,7 @@ public:
 	float range = 6;
 	bool targetListA = false;
 	bool sexy = true;
-	vec2 joe;
+	vec2_t joe;
 
 	FightBot();
 	~FightBot();
@@ -31,5 +31,5 @@ public:
 	virtual void onLevelRender() override;
 	virtual void onEnable() override;
 	virtual void onDisable() override;
-	virtual void onSendPacket(C_Packet* packet) override;
+	virtual void onSendPacket(C_Packet* packet);
 };
