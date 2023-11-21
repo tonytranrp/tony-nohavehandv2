@@ -235,7 +235,8 @@ void IModule::registerMinMaxSetting(string name, int* intPtr, int defaultValue, 
 
 	settings.push_back(setting);  // Add to list
 }
-
+void IModule::onImGuiRender() {
+}
 void IModule::registerKeybindSetting(string name, int* intPtr, int defaultValue, int minValue, int maxValue) {
 #ifdef DEBUG
 	if (minValue > maxValue)

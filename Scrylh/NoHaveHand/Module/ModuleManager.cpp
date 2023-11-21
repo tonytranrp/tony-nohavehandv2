@@ -211,7 +211,14 @@ void ModuleManager::onSaveConfig(void* confVoid) {
 		mod->onSaveConfig(conf);
 	}
 }
-
+void ModuleManager::onImGuiRender() {
+	if (!isInitialized())
+		return;
+	for (auto& mod : moduleList) {
+		if (mod->isEnabled() || mod->callWhenDisabled())
+			mod->onImGuiRender();
+	}
+}
 void ModuleManager::onLoadSettings(void* confVoid) {
 	auto conf = reinterpret_cast<json*>(confVoid);
 	if (!isInitialized()) return;

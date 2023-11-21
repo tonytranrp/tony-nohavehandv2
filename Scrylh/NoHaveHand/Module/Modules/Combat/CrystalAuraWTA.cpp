@@ -178,7 +178,7 @@ bool CrystalAuraWTA::isPlaceValid(vec3_t location, C_Entity* atkObj) {
 
 	float possibleDmg = computeExplosionDamage(location, localPlayer, region);
 	if (possibleDmg > maxSelfDmg && maxSelfDmg != 20.f)
-		
+
 		return false;
 
 	if (atkObj->getHumanPos().floor().y >= location.y) {

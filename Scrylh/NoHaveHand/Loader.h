@@ -13,6 +13,7 @@
 
 #include "../Memory/GameData.h"
 #include "../Memory/Hooks.h"
+#include "../Memory/DXHook.h"
 #include "../Memory/MinHook.h"
 #include "../SDK/CChestBlockActor.h"
 #include "../SDK/CClientInstance.h"
@@ -27,8 +28,11 @@
 #include "../include/WinHttpClient.h"
 #include "Command/CommandMgr.h"
 #include "Config/ConfigManager.h"
-#include "Config/SettingManager.h"
 #include "Menu/ClickGui.h"
-#include "Menu/TabGui.h"
 #include "Module/ModuleManager.h"
 #include "../Utils/ImmediateGui.h"
+
+class Loader {
+public:
+	static bool isRunning;
+};

@@ -181,6 +181,7 @@ public:
 	void onTick(C_GameMode* gameMode);
 	void onAttack(C_Entity* attackedEnt);
 	void onPlayerTick(C_Player* plr);
+	void onImGuiRender();
 	void onWorldTick(C_GameMode* gameMode);
 	void onKeyUpdate(int key, bool isDown);
 	void onPreRender(C_MinecraftUIRenderContext* renderCtx);

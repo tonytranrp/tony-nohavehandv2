@@ -311,6 +311,8 @@
 		<ClCompile Include="NoHaveHand\Module\Modules\Visual\Welcome.cpp" />
 		<ClCompile Include="NoHaveHand\Notifications\NotificationManager.cpp" />
 		<ClCompile Include="Utils\ColorUtil.cpp" />
+		<ClCompile Include="Utils\D2DUtils.cpp" />
+		
 		<ClCompile Include="Utils\DrawUtils.cpp" />
 		<ClCompile Include="NoHaveHand\FriendList\FriendList.cpp" />
 		<ClCompile Include="Utils\GuiUtils.cpp" />
@@ -410,6 +412,7 @@
 		<ClCompile Include="NoHaveHand\Module\Modules\Exploit\Crasher.cpp" />
 		<ClCompile Include="Memory\GameData.cpp" />
 		<ClCompile Include="Memory\Hooks.cpp" />
+		<ClCompile Include="Memory\DXHook.cpp" />
 		<ClCompile Include="Memory\SlimMem.cpp" />
 		<ClCompile Include="pch.cpp" />
 		<ClCompile Include="SDK\CBlockLegacy.cpp" />
@@ -440,6 +443,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ClInclude Include="Memory\pch.h" />
+		<ClInclude Include="Memory\DXHook.h" />
 		<ClInclude Include="NoHaveHand\Command\CommandMgr.h" />
 		<ClInclude Include="NoHaveHand\Command\Commands\AutoLogCommand.h" />
 		<ClInclude Include="NoHaveHand\Command\Commands\BindCommand.h" />
@@ -498,7 +502,15 @@
 		<ClInclude Include="NoHaveHand\Module\Modules\Combat\Surround.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Combat\Switcher2.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Combat\TargetDown.h" />
-
+		<ClCompile Include="include\imgui\imgui.cpp" />
+    <ClCompile Include="include\imgui\imgui_demo.cpp" />
+    <ClCompile Include="include\imgui\imgui_draw.cpp" />
+    <ClCompile Include="include\imgui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="include\imgui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="include\imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="include\imgui\imgui_tables.cpp" />
+    <ClCompile Include="include\imgui\imgui_widgets.cpp" />
+<ClCompile Include="include\kiero\kiero.cpp" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Exploit\EntityFly.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Exploit\FastUse.h" />
 		<ClInclude Include="NoHaveHand\Module\Modules\Exploit\NoLagBack.h" />
@@ -538,6 +550,9 @@
 		<ClInclude Include="NoHaveHand\Module\Modules\Visual\Welcome.h" />
 		<ClInclude Include="NoHaveHand\Notifications\NotificationManager.h" />
 		<ClInclude Include="Utils\ColorUtil.h" />
+		<ClInclude Include="Utils\D2DUtils.h" />
+		<ClInclude Include="Utils\Base64.h" />
+		
 		<ClInclude Include="Utils\DrawUtils.h" />
 		<ClInclude Include="NoHaveHand\FriendList\FriendList.h" />
 		<ClInclude Include="Utils\GuiUtils.h" />
