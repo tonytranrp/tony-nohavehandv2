@@ -33,17 +33,8 @@ CrystalAuraWTA::CrystalAuraWTA() : IModule(0, Category::COMBAT, "p100 java CA by
 	registerEnumSetting("Faceplace Type", &this->facePlaceType, 0);
 	registerFloatSetting("FP Threshold", &this->fpThresh, this->fpThresh, 0.f, 20.f);
 	registerFloatSetting("FP MinimumDmg", &this->dmgAtThresh, this->dmgAtThresh, 0.f, 20.f);
-
 	registerBoolSetting("Render", &this->renderPlacing, this->renderPlacing);
-	registerBoolSetting("1.13+ ", &this->noCheckUpper, this->noCheckUpper);
-	registerBoolSetting("Multi-Attack", &this->attackMulti, this->attackMulti);
 
-	rotate = SettingEnum(this)
-		.addEntry(EnumEntry("none", 0))
-		.addEntry(EnumEntry("normal", 1))
-		.addEntry(EnumEntry("silent", 2))
-		.addEntry(EnumEntry("pitchUp", 3));
-	registerEnumSetting("Rotations", &this->rotate, 0);
 }
 
 CrystalAuraWTA::~CrystalAuraWTA() {};
@@ -53,22 +44,6 @@ const char* CrystalAuraWTA::getModuleName() {
 }
 int slotCA = 0;
 
-void findCr() {
-	C_PlayerInventoryProxy* supplies = g_Data.getLocalPlayer()->getSupplies();
-	C_Inventory* inv = supplies->inventory;
-	auto prevSlot = supplies->selectedHotbarSlot;
-	for (int n = 0; n < 36; n++) {
-		C_ItemStack* stack = inv->getItemStack(n);
-		if (stack->item != nullptr) {
-			if (stack->getItem()->itemId == 637) {
-				if (prevSlot != n)
-					supplies->selectedHotbarSlot = n;
-				return;
-			}
-		}
-	}
-
-}
 /*
 int findRelativeAngle(vec3_t playerVec, vec3_t enemyVec) {
 
@@ -254,7 +229,7 @@ float CrystalAuraWTA::computeExplosionDamage(vec3_t crystalPos, C_Entity* target
 		{609, 3}, {350, 3}, {612, 3}, {348, 8}, {610, 8}, {349, 6}, {611, 6}
 	};
 
-	if (calcDmgType.GetSelectedEntry().GetValue() == 0) {  // calcDmgType == JAVA
+	if (calcDmgType.GetSelectedEntry().GetValue() == 0) {
 		float toughness = 0.0f;
 		float distedsize = target->getHumanPos().dist(crystalPos) / explosionRadius;
 		double blockDensity = getSeenPercent(reg, crystalPos.add(0.5f, 0.0f, 0.5f), target->aabb);
@@ -307,8 +282,6 @@ float CrystalAuraWTA::computeExplosionDamage(vec3_t crystalPos, C_Entity* target
 
 	return 0.0f;
 }
-
-
 
 float CrystalAuraWTA::getBlastDamageEnchantReduction(C_ItemStack* armor) {
 	float epf = 0.f;
@@ -460,7 +433,6 @@ CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 	return duplicates[0];
 }
 
-
 #include <algorithm>
 
 bool cmpAgain(CrystalPlacements E1, CrystalPlacements E2) {
@@ -517,12 +489,10 @@ CrystalPlacements CrystalAuraWTA::CrystalAuraJTWD(C_Entity* target) {
 		return place1.enemyDmg > place2.enemyDmg;
 	};
 
-	// Sort placements outside of parallel section for better performance
 	std::sort(validPlacements.begin(), validPlacements.end(), advancedComparator);
 
 	return validPlacements[0];
 }
-
 
 bool compareTargListVec(C_Entity* E1, C_Entity* E2) {
 	int whatToCompare = moduleMgr->getModule<CrystalAuraWTA>()->priority.GetSelectedEntry().GetValue();
@@ -549,9 +519,24 @@ void placeCrystal(const vec3_t& position) {
 }
 
 void breakCrystal(const vec3_t& position) {
-	
+
 }
 bool hasPlaced = false;
+void findCr() {
+	C_PlayerInventoryProxy* supplies = g_Data.getLocalPlayer()->getSupplies();
+	C_Inventory* inv = supplies->inventory;
+	for (int n = 0; n < 9; n++) {
+		C_ItemStack* stack = inv->getItemStack(n);
+		if (stack->item != nullptr) {
+			if (stack->getItem()->itemId == 637) {
+				supplies->selectedHotbarSlot = n;
+
+				return;
+			}
+		}
+	}
+
+}
 void CrystalAuraWTA::onTick(C_GameMode* gm) {
 	hasRotten = false;
 	rotUpNow = true;
@@ -571,10 +556,11 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 
 	auto supplies = g_Data.getLocalPlayer()->getSupplies();
 	auto inv = supplies->inventory;
+	slotCA = supplies->selectedHotbarSlot;
+	C_ItemStack* item = supplies->inventory->getItemStack(0);
 
 	if (!attackMulti) {
 		if (!tgtList.empty()) {
-			findCr();
 
 			CrystalPlacements placeInfo = CrystalAuraJTWD(tgtList[0]);
 			if (placeInfo.enemyDmg != -42069) {
@@ -587,7 +573,6 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 	}
 	else if (attackMulti) {
 		for (auto& enemy : tgtList) {
-			findCr();
 
 			CrystalPlacements placeInfo = CrystalAuraJTWD(enemy);
 			if (placeInfo.enemyDmg != -42069) {
@@ -600,19 +585,17 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 	}
 
 	ctr++;
-	C_ItemStack* item = supplies->inventory->getItemStack(0);
 
+	findCr();
 	if (ctr >= delay) {
+
 		for (CrystalInfo& Place : CJTWDPlaceArr) {
 			vec3_t placeMe = Place.CPlacements.toPlace;
 
 			placeCrystal(placeMe);
 
-			findCr();
-			
-			
 		}
-		
+
 		g_Data.forEachEntity([](C_Entity* ent, bool b) {
 			if (tgtList.empty()) return;
 			int id = ent->getEntityTypeId();
@@ -625,13 +608,8 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 					g_Data.getLocalPlayer()->swingArm();
 			}
 			});
-		CJTWDPlaceArr.clear();
-
-		
 		supplies->selectedHotbarSlot = slotCA;
 
-
-		
 		ctr = 0;
 	}
 }
