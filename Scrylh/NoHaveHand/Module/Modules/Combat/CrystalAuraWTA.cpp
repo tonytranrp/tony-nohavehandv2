@@ -542,8 +542,6 @@ bool isPlayerAuthInput = false;
 vec3_t postorot;
 #include "../pch.h"
 #include "../../../../Utils/Logger.h"
-// Define a delay between crystal placements to prevent excessive actions
-constexpr int CrystalPlacementDelay = 2;
 
 void placeCrystal(const vec3_t& position) {
 	g_Data.getCGameMode()->buildBlock(&vec3_ti(position).sub(0, 1, 0), 0);
@@ -551,22 +549,9 @@ void placeCrystal(const vec3_t& position) {
 }
 
 void breakCrystal(const vec3_t& position) {
-	g_Data.forEachEntity([position](C_Entity* ent, bool b) {
-		int id = ent->getEntityTypeId();
-		int range = moduleMgr->getModule<CrystalAuraWTA>()->placeRange;
-
-		if (id == 71 && g_Data.getLocalPlayer()->getPos()->dist(*ent->getPos()) <= range) {
-			g_Data.getCGameMode()->attack(ent);
-			g_Data.getLocalPlayer()->pointingStruct->rayHitType = 0;
-			Utils::nopBytes((unsigned char*)HiveRotations1, 3);
-			Utils::patchBytes((unsigned char*)HiveRotations2, (unsigned char*)"\xC7\x40\x18\x00\x00\x00\x00", 7);
-
-			if (!moduleMgr->getModule<NoSwing>()->isEnabled())
-				g_Data.getLocalPlayer()->swingArm();
-		}
-		});
+	
 }
-
+bool hasPlaced = false;
 void CrystalAuraWTA::onTick(C_GameMode* gm) {
 	hasRotten = false;
 	rotUpNow = true;
@@ -624,12 +609,26 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 			placeCrystal(placeMe);
 
 			findCr();
-			slotCA = supplies->selectedHotbarSlot;
-			// Break crystals faster
-			breakCrystal(placeMe);
-
-			placeCrystal(placeMe);
+			
+			
 		}
+		
+		g_Data.forEachEntity([](C_Entity* ent, bool b) {
+			if (tgtList.empty()) return;
+			int id = ent->getEntityTypeId();
+			int range = moduleMgr->getModule<CrystalAuraWTA>()->range;
+			if (id == 71 && g_Data.getLocalPlayer()->getPos()->dist(*ent->getPos()) <= range) {
+				g_Data.getCGameMode()->attack(ent);
+				hasPlaced = false;
+
+				if (!moduleMgr->getModule<NoSwing>()->isEnabled())
+					g_Data.getLocalPlayer()->swingArm();
+			}
+			});
+		CJTWDPlaceArr.clear();
+
+		
+		supplies->selectedHotbarSlot = slotCA;
 
 
 		
