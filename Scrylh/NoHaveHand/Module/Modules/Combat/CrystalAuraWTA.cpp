@@ -146,26 +146,43 @@ bool CrystalAuraWTA::isPlaceValid(vec3_t location, C_Entity* atkObj) {
 	auto* localPlayer = g_Data.getLocalPlayer();
 	auto* region = localPlayer->region;
 	auto& aabb = localPlayer->aabb;
+
 	using getSeenPercent_t = float(__fastcall*)(C_BlockSource*, vec3_t const&, AABB const&);
 	static getSeenPercent_t getSeenPercent = reinterpret_cast<getSeenPercent_t>(
 		FindSignature("40 53 55 41 56 48 81 ec ? ? ? ? 48 8b 05 ? ? ? ? 48 33 c4 48 89 84 24"));
-	auto blockType = region->getBlock(location)->toLegacy()->blockId;
+
+	static std::unordered_map<vec3_ti, int, Vec3Hash> cachedBlockTypes;
+
+	auto getCachedBlockType = [&](const vec3_ti& pos) -> int {
+		auto it = cachedBlockTypes.find(pos);
+		if (it != cachedBlockTypes.end()) {
+			return it->second;
+		}
+
+		int blockType = region->getBlock(pos)->toLegacy()->blockId;
+		cachedBlockTypes[pos] = blockType;
+		return blockType;
+	};
+
+	auto blockType = getCachedBlockType(location);
 	if (blockType != 0)
 		return false;
 
 	if (!noCheckUpper) {
-		auto upperBlockType = region->getBlock(location.add(0, 1, 0))->toLegacy()->blockId;
+		auto upperPos = location.add(0, 1, 0);
+		auto upperBlockType = getCachedBlockType(upperPos);
 		if (upperBlockType != 0)
 			return false;
 
-		if (checkCornerHitboxCollision(location.add(0, 1, 0), atkObj))
+		if (checkCornerHitboxCollision(upperPos, atkObj))
 			return false;
 	}
 
 	if (checkCornerHitboxCollision(location, atkObj))
 		return false;
 
-	auto lowerBlockType = region->getBlock(location.sub(0, 1, 0))->toLegacy()->blockId;
+	auto lowerPos = location.sub(0, 1, 0);
+	auto lowerBlockType = getCachedBlockType(lowerPos);
 	if (lowerBlockType != 49 && lowerBlockType != 7)
 		return false;
 
@@ -177,24 +194,23 @@ bool CrystalAuraWTA::isPlaceValid(vec3_t location, C_Entity* atkObj) {
 		return false;
 
 	float possibleDmg = computeExplosionDamage(location, localPlayer, region);
-	if (possibleDmg > maxSelfDmg && maxSelfDmg != 20.f)
-
+	if (possibleDmg > maxSelfDmg && maxSelfDmg != 20.0f)
 		return false;
 
 	if (atkObj->getHumanPos().floor().y >= location.y) {
-		float targetSeenPercent = getSeenPercent(atkObj->region, location.add(0.5f, 0.f, 0.5f), atkObj->aabb);
+		float targetSeenPercent = getSeenPercent(atkObj->region, location.add(0.5f, 0.0f, 0.5f), atkObj->aabb);
 		float enemyDmg = computeExplosionDamage(location, atkObj, atkObj->region);
 
-		if (enemyDmg < minEnemDmg && minEnemDmg != 0.f && targetSeenPercent == 0.f)
+		if (enemyDmg < minEnemDmg && minEnemDmg != 0.0f && targetSeenPercent == 0.0f)
 			return false;
 	}
 
 	if ((atkObj->getHumanPos().floor().y + 1) <= location.y && facePlaceType.GetSelectedEntry().GetValue() == 0) {
-		if ((fpThresh < atkObj->getHealth()) && fpThresh != 20.f)
+		if ((fpThresh < atkObj->getHealth()) && fpThresh != 20.0f)
 			return false;
 
 		float enemyDmg = computeExplosionDamage(location, atkObj, atkObj->region);
-		if (enemyDmg < dmgAtThresh && enemyDmg != 0.f)
+		if (enemyDmg < dmgAtThresh && enemyDmg != 0.0f)
 			return false;
 	}
 	else if ((atkObj->getHumanPos().floor().y + 1) <= location.y && facePlaceType.GetSelectedEntry().GetValue() == 1)
@@ -208,81 +224,91 @@ bool CrystalAuraWTA::isPlaceValid(vec3_t location, C_Entity* atkObj) {
 			return false;
 	}
 
-	if (g_Data.getLocalPlayer()->getHumanPos().floor() == location)
+	if (localPlayer->getHumanPos().floor() == location)
 		return false;
 
 	return true;
 }
+
+#include <unordered_map>
+
 float CrystalAuraWTA::computeExplosionDamage(vec3_t crystalPos, C_Entity* target, C_BlockSource* reg) {
-	constexpr float explosionRadius = 12.f;
+	constexpr float explosionRadius = 12.0f;
+	float dist = target->getHumanPos().dist(crystalPos) / explosionRadius;
 
-	vec3_t pos = target->getHumanPos();
-	float dist = pos.dist(crystalPos) / explosionRadius;
+	if (dist > 1.0f)
+		return 0.0f;
 
-	if (dist > 1.f) {
-		return 0.f;
-	}
-
-	int armorPoints = 0, epf = 0;
-	float damage = 0.f;
+	float exposure = 0.0f;
+	float impact = 0.0f;
+	int armorPoints = 0;
+	int epf = 0;
 
 	using getSeenPercent_t = float(__fastcall*)(C_BlockSource*, vec3_t const&, AABB const&);
 	static getSeenPercent_t getSeenPercent = reinterpret_cast<getSeenPercent_t>(
-		FindSignature("40 53 55 41 56 48 81 ec ? ? ? ? 48 8b 05 ? ? ? ? 48 33 c4 48 89 84 24"));
+		FindSignature("40 53 55 41 56 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4"));
 
-	float distedsize = target->getHumanPos().dist(crystalPos) / explosionRadius;
-	double blockDensity = getSeenPercent(reg, crystalPos.add(0.5f, 0.f, 0.5f), target->aabb);
-	double v = (1.0 - distedsize) * blockDensity;
+	static std::unordered_map<int, int> armorMapping = {
+		{573, 2}, {335, 1}, {336, 3}, {337, 2}, {338, 1}, {351, 2}, {352, 5}, {353, 3}, {354, 1},
+		{339, 2}, {340, 5}, {341, 4}, {342, 1}, {343, 2}, {344, 6}, {345, 5}, {346, 2}, {347, 3},
+		{609, 3}, {350, 3}, {612, 3}, {348, 8}, {610, 8}, {349, 6}, {611, 6}
+	};
 
-	if (calcDmgType.GetSelectedEntry().GetValue() == 0) {
-		float armorProtection = 0.f;
+	if (calcDmgType.GetSelectedEntry().GetValue() == 0) {  // calcDmgType == JAVA
+		float toughness = 0.0f;
+		float distedsize = target->getHumanPos().dist(crystalPos) / explosionRadius;
+		double blockDensity = getSeenPercent(reg, crystalPos.add(0.5f, 0.0f, 0.5f), target->aabb);
+		double v = (1.0 - distedsize) * blockDensity;
 
-		for (int i = 0; i < 4; i++) {
+		float damage = static_cast<float>(static_cast<int>((v * v + v) / 2.0 * 7.0 * explosionRadius + 1.0));
+		damage = damage * 3.0 / 2.0;
+
+		bool hasArmor = false;
+		for (int i = 0; i < 4; ++i) {
 			C_ItemStack* armor = target->getArmor(i);
-			if (armor->item == nullptr) continue;
+
+			if (armor->item == nullptr)
+				continue;
 
 			int armorId = armor->getItem()->itemId;
-
-			switch (armorId) {
-			case 573: case 335: case 338: case 351: case 353: case 354:
-				armorProtection += 1.0 - (1.0 / (2.0 * armorPoints + 2.0)); break;
-			case 336: case 337: case 340: case 341: case 344: case 345: case 346: case 609: case 610: case 611: case 612:
-				armorProtection += 1.0 - (1.0 / (4.0 * armorPoints + 4.0)); break;
-			case 347: case 350:
-				armorProtection += 3.0; break;
-			case 348:
-				armorProtection += 8.0; break;
-			case 349:
-				armorProtection += 6.0; break;
-			}
-
-			epf += (int)getBlastDamageEnchantReduction(armor);
+			armorPoints += armorMapping[armorId];
+			hasArmor = true;
+			epf += static_cast<int>(getBlastDamageEnchantReduction(armor));
 		}
 
-		float F_epf = fminf((float)epf, 15.f) / 25.f;
-		damage = (float)(int)(v * v * 7.0 * explosionRadius * (1.0 - armorProtection) + 1.0);
-		damage *= (1 - F_epf);
+		if (hasArmor) {
+			float F_epf = fminf(static_cast<float>(epf), 15.0f) / 25.0f;
+			damage = damage * fminf(static_cast<float>(armorPoints) / 5, 1 / (static_cast<float>(armorPoints) / 5));
+			damage = damage * (1 - F_epf);
+		}
+		return damage;
 	}
 	else if (calcDmgType.GetSelectedEntry().GetValue() == 1) {
+		exposure = getSeenPercent(reg, crystalPos.add(0.5f, 0.0f, 0.5f), target->aabb);
+		impact = (1 - dist) * exposure;
+		int damage = static_cast<int>((impact * impact * 3.5f + impact * 0.5f * 7.0f) * explosionRadius + 1.0f);
 
-		float exposure = getSeenPercent(reg, crystalPos.add(0.5f, 0.f, 0.5f), target->aabb);
-		float impact = (1 - dist) * exposure;
-		damage = (float)(int)((impact * impact * 3.5f + impact * 0.5f * 7.f) * explosionRadius + 1.f);
+		float finalDamage = static_cast<float>(damage);
 
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < 4; ++i) {
 			C_ItemStack* armor = target->getArmor(i);
-			if (armor->item == nullptr) continue;
 
-			armorPoints += (*armor->item)->getArmorValue();
-			epf += (int)getBlastDamageEnchantReduction(armor);
+			if (armor->item == nullptr)
+				continue;
+
+			armorPoints += armor->getItem()->getArmorValue();
+			epf += static_cast<int>(getBlastDamageEnchantReduction(armor));
 		}
 
-		damage -= damage * armorPoints * 0.04f;
-		damage -= damage * std::min(ceilf(std::min(epf, 25) * 0.75f), 20.f) * 0.04f;
+		finalDamage -= finalDamage * armorPoints * 0.04f;
+		finalDamage -= finalDamage * std::min(ceilf(std::min(epf, 25) * 75.0f / 100), 20.0f) * 0.04f;
+		return finalDamage;
 	}
 
-	return damage;
+	return 0.0f;
 }
+
+
 
 float CrystalAuraWTA::getBlastDamageEnchantReduction(C_ItemStack* armor) {
 	float epf = 0.f;
@@ -292,61 +318,41 @@ float CrystalAuraWTA::getBlastDamageEnchantReduction(C_ItemStack* armor) {
 		epf += armor->getEnchantValue(3) * 2.f;
 	}
 	else if (calcDmgType.GetSelectedEntry().GetValue() == 1) {
-		epf += armor->getEnchantValue(0);
+		epf += (armor->getEnchantValue(0) != 4) ? armor->getEnchantValue(0) : 5;
 		epf += armor->getEnchantValue(3) * 2.f;
 	}
 
 	return epf;
 }
-
-#include <cmath>
-
+#include <unordered_set>
 std::vector<CrystalPlacements> CrystalAuraWTA::generateValidPlacements(C_Entity* target, int yOffset) {
-	vec3_t targetPos = target->getHumanPos().floor();
-	targetPos = vec3_t(targetPos.x, targetPos.y + (float)yOffset, targetPos.z);
+	vec3_t targetPos = target->getHumanPos().floor().add(0, static_cast<float>(yOffset), 0);
 
-	std::vector<CrystalPlacements> bunchashit;
+	std::vector<CrystalPlacements> validPlacements;
+	std::unordered_set<vec3_t, Vec3Hash> checkedPositions;
 
-	int radius = maxProximity;
-	int x = 0, z = 0;
-	int dx = 0, dz = -1;
+	for (int x = -maxProximity; x < maxProximity; x++) {
+		for (int z = -maxProximity; z < maxProximity; z++) {
+			vec3_t search = targetPos.add(x, 0, z);
 
-	for (int i = 0; i < maxProximity * maxProximity; i++) {
-		x += dx;
-		z += dz;
+			if (search.dist(target->getHumanPos()) < maxProximity && targetPos.floor() != search) {
+				if (checkedPositions.find(search) == checkedPositions.end()) {
+					if (isPlaceValid(search, target)) {
+						CrystalPlacements placement;
+						placement.toPlace = search;
+						placement.enemyDmg = computeExplosionDamage(search, target, target->region);
+						placement.selfDmg = computeExplosionDamage(search, g_Data.getLocalPlayer(), g_Data.getLocalPlayer()->region);
 
-		vec3_t search = targetPos.add(x, 0, z);
-		if (search.dist(target->getHumanPos()) < radius &&
-			target->getHumanPos().floor() != search &&
-			isPlaceValid(search, target)) {
-
-			CrystalPlacements me;
-			me.toPlace = search;
-			me.enemyDmg = computeExplosionDamage(search, target, target->region);
-			me.selfDmg = computeExplosionDamage(search, g_Data.getLocalPlayer(), g_Data.getLocalPlayer()->region);
-
-			bunchashit.push_back(me);
-		}
-
-		if (x == z || (x < 0 && x == -z) || (x > 0 && x == 1 - z)) {
-			// Change direction if necessary
-			int temp = dx;
-			dx = -dz;
-			dz = temp;
-		}
-
-		if (std::abs(x) >= std::abs(z)) {
-			dx = (x > 0) ? -1 : 1;
-		}
-		else {
-			dz = (z > 0) ? -1 : 1;
+						validPlacements.push_back(placement);
+					}
+					checkedPositions.insert(search);
+				}
+			}
 		}
 	}
 
-	return bunchashit;
+	return validPlacements;
 }
-
-
 
 bool cmpPlacements(CrystalPlacements E1, CrystalPlacements E2) {
 	bool cmpType = moduleMgr->getModule<CrystalAuraWTA>()->safetyFirst;
@@ -378,13 +384,14 @@ float getVisibility(const vec3_t& position, const AABB& targetAABB) {
 	vec3_t pos = vec3_t(0.5f, 0.f, 0.5f);
 	return getSeenPercent(g_Data.getLocalPlayer()->region, position.add(pos), targetAABB);
 }
-CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
-	std::vector<CrystalPlacements> validShit = generateValidPlacements(targ, yLevel);
 
-	if (validShit.empty()) {
-		CrystalPlacements anEmptyValue;
-		anEmptyValue.enemyDmg = -42069;
-		return anEmptyValue;
+CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
+	std::vector<CrystalPlacements> validPlacements = generateValidPlacements(targ, yLevel);
+
+	if (validPlacements.empty()) {
+		CrystalPlacements emptyPlacement;
+		emptyPlacement.enemyDmg = -42069;
+		return emptyPlacement;
 	}
 
 	auto cmpCustom = [targ](const CrystalPlacements& E1, const CrystalPlacements& E2) {
@@ -403,16 +410,16 @@ CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 		return E1.enemyDmg > E2.enemyDmg;
 	};
 
-	std::sort(validShit.begin(), validShit.end(), cmpCustom);
+	std::sort(validPlacements.begin(), validPlacements.end(), cmpCustom);
 
-	float hl = 0.f;
-	std::vector<CrystalPlacements> dups;
+	float highestDamage = 0.0f;
+	std::vector<CrystalPlacements> duplicates;
 
 	if (safetyFirst) {
-		for (const CrystalPlacements& i : validShit) {
-			hl = i.selfDmg;
-			if (i.selfDmg == hl) {
-				dups.push_back(i);
+		for (const CrystalPlacements& placement : validPlacements) {
+			highestDamage = placement.selfDmg;
+			if (placement.selfDmg == highestDamage) {
+				duplicates.push_back(placement);
 			}
 			else {
 				break;
@@ -420,10 +427,10 @@ CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 		}
 	}
 	else {
-		for (const CrystalPlacements& i : validShit) {
-			hl = i.enemyDmg;
-			if (i.enemyDmg == hl) {
-				dups.push_back(i);
+		for (const CrystalPlacements& placement : validPlacements) {
+			highestDamage = placement.enemyDmg;
+			if (placement.enemyDmg == highestDamage) {
+				duplicates.push_back(placement);
 			}
 			else {
 				break;
@@ -431,25 +438,28 @@ CrystalPlacements CrystalAuraWTA::bestPlaceOnPlane(C_Entity* targ, int yLevel) {
 		}
 	}
 
-	if (dups.size() == 1)
-		return dups[0];
+	if (duplicates.size() == 1)
+		return duplicates[0];
 
-	std::sort(dups.begin(), dups.end(), cmpDup);
+	std::sort(duplicates.begin(), duplicates.end(), cmpDup);
+
 	using getSeenPercent_t = float(__fastcall*)(C_BlockSource*, vec3_t const&, AABB const&);
-	static getSeenPercent_t getSeenPercent = reinterpret_cast<getSeenPercent_t>(FindSignature("40 53 55 41 56 48 81 ec ? ? ? ? 48 8b 05 ? ? ? ? 48 33 c4 48 89 84 24"));
+	static getSeenPercent_t getSeenPercent = reinterpret_cast<getSeenPercent_t>(
+		FindSignature("40 53 55 41 56 48 81 ec ? ? ? ? 48 8b 05 ? ? ? ? 48 33 c4 48 89 84 24"));
 
-	for (const CrystalPlacements& dup : dups) {
-		vec3_t block = dup.toPlace;
+	for (const CrystalPlacements& duplicate : duplicates) {
+		vec3_t block = duplicate.toPlace;
 
 		float exposure = getSeenPercent(g_Data.getLocalPlayer()->region, block.add(0.5f, 0.f, 0.5f), targ->aabb);
 
 		if (exposure > 0.5f && !checkCornerHitboxCollision(block, targ)) {
-			return dup;
+			return duplicate;
 		}
 	}
 
-	return dups[0];
+	return duplicates[0];
 }
+
 
 #include <algorithm>
 
@@ -469,8 +479,7 @@ CrystalPlacements CrystalAuraWTA::CrystalAuraJTWD(C_Entity* target) {
 			return placement;
 		}
 		else {
-
-			return { };
+			return {};
 		}
 	};
 
@@ -487,8 +496,7 @@ CrystalPlacements CrystalAuraWTA::CrystalAuraJTWD(C_Entity* target) {
 	}
 
 	if (validPlacements.empty()) {
-
-		return { };
+		return {};
 	}
 
 	auto advancedComparator = [target](const CrystalPlacements& place1, const CrystalPlacements& place2) {
@@ -509,17 +517,12 @@ CrystalPlacements CrystalAuraWTA::CrystalAuraJTWD(C_Entity* target) {
 		return place1.enemyDmg > place2.enemyDmg;
 	};
 
-#pragma omp parallel sections
-	{
-#pragma omp section
-		{
-
-			std::sort(validPlacements.begin(), validPlacements.end(), advancedComparator);
-		}
-	}
+	// Sort placements outside of parallel section for better performance
+	std::sort(validPlacements.begin(), validPlacements.end(), advancedComparator);
 
 	return validPlacements[0];
 }
+
 
 bool compareTargListVec(C_Entity* E1, C_Entity* E2) {
 	int whatToCompare = moduleMgr->getModule<CrystalAuraWTA>()->priority.GetSelectedEntry().GetValue();
@@ -618,18 +621,18 @@ void CrystalAuraWTA::onTick(C_GameMode* gm) {
 		for (CrystalInfo& Place : CJTWDPlaceArr) {
 			vec3_t placeMe = Place.CPlacements.toPlace;
 
-			// Place multiple crystals in a single game tick
-			for (int i = 0; i < CrystalPlacementDelay; ++i) {
-				placeCrystal(placeMe);
-			}
+			placeCrystal(placeMe);
 
 			findCr();
-
+			slotCA = supplies->selectedHotbarSlot;
 			// Break crystals faster
 			breakCrystal(placeMe);
+
+			placeCrystal(placeMe);
 		}
 
-		slotCA = supplies->selectedHotbarSlot;
+
+		
 		ctr = 0;
 	}
 }

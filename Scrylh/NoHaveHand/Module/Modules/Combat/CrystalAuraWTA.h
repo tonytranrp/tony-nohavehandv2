@@ -18,40 +18,23 @@ struct lineResults {
 	vec3_t lastSolidBlock;
 };
 inline bool checkCornerHitboxCollision(const vec3_t& block, C_Entity* ent) {
-	if (ent->getEntityTypeId() != 319) {
-		for (int i = 0; i < 4; ++i) {
-			vec3_t corner(
-				i % 2 == 0 ? ent->aabb.lower.x : ent->aabb.upper.x,
-				ent->aabb.lower.y,
-				(i < 2) ? ent->aabb.lower.z : ent->aabb.upper.z
-			);
+	AABB targetAABB = (ent->getEntityTypeId() != 319) ?
+		ent->aabb :
+		AABB(ent->getHumanPos().add(-0.3f, 0, -0.3f), ent->getHumanPos().add(0.3f, 1.8f, 0.3f));
 
-			// Use epsilon to account for rounding errors
-			if ((corner - block).length() < 0.001f) {
-				return true;
-			}
-		}
-	}
-	else {
-		vec3_t pp = ent->getHumanPos();
-		vec3_t entCorners[8] = {
-			pp.add(.3f, 0, .3f), pp.add(-.3f, 0, .3f),
-			pp.add(.3f, 0, -.3f), pp.add(-.3f, 0, -.3f),
-			pp.add(.33541f, 0, 0), pp.add(-.33541f, 0, 0),
-			pp.add(0, 0, .33541f), pp.add(0, 0, -.33541f),
-		};
+	for (int i = 0; i < (ent->getEntityTypeId() != 319 ? 4 : 8); ++i) {
+		vec3_t corner = (ent->getEntityTypeId() != 319) ?
+			vec3_t(i % 2 == 0 ? targetAABB.lower.x : targetAABB.upper.x,
+				targetAABB.lower.y, (i < 2) ? targetAABB.lower.z : targetAABB.upper.z) :
+			targetAABB.centerPoint().add(targetAABB.lower.sub(targetAABB.upper).mul(0.5f));
 
-		for (const vec3_t& i : entCorners) {
-			// Use epsilon to account for rounding errors
-			if ((i - block).length() < 0.001f) {
-				return true;
-			}
+		if (!targetAABB.intersectsXZ(AABB(block, 1.0f, 1.0f, 1.0f))) {
+			return false; // No intersection, safe to place
 		}
 	}
 
-	return false;
+	return true; // Intersection detected, cannot place
 }
-
 
 inline lineResults countBlksAlongLine(vec3_t start, vec3_t end) {
 	vec3_t endf = end.floor();
@@ -226,6 +209,6 @@ public:
 	virtual void onDisable() override;
 	virtual void onPreRender(C_MinecraftUIRenderContext* renderCtx) override;
 	virtual void onLevelRender();
-	virtual void onSendPacket(C_Packet* packet);
+	virtual void onSendPacket(Packet* packet);
 
 };

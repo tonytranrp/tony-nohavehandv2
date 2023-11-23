@@ -261,13 +261,15 @@ void Hooks::Init() {
 			return origFunc(_this, matrix, lerpT);
 		};
 
-		
+
 		shared_ptr<FuncHook> bobViewHook = make_shared<FuncHook>(levelRendererBobView, (decltype(&bobViewHookF.operator()))bobViewHookF);
 
 		g_Hooks.lambdaHooks.push_back(bobViewHook);
-		
+
+
 #undef lambda_counter
-		logF("Hooks initialized");
+
+logF("Hooks initialized");
 	}
 
 	// clang-format on
@@ -330,9 +332,6 @@ void* Hooks::Player_tickWorld(C_Player* _this, __int64 unk) {
 
 float Hooks::getDestroySpeed(C_Player* _this, C_Block& block) {
 	static auto oFunc = g_Hooks.getDestroySpeedHook->GetFastcall<float, C_Player*, C_Block&>();
-	static auto speedMine = moduleMgr->getModule<SpeedMine>();
-	if (speedMine->isEnabled() && !speedMine->instant)
-		return speedMine->speed;
 	return oFunc(_this, block);
 }
 
@@ -469,13 +468,59 @@ __int64 Hooks::RenderText(__int64 a1, C_MinecraftUIRenderContext* renderCtx) {
 		static auto phase = moduleMgr->getModule<Phase>();
 
 		if (chestStealer->isEnabled() && chestStealer->autoDisable) chestStealer->setEnabled(false);
+		//if (phase->isEnabled() && phase->mode.getSelectedValue() == 1) phase->worldChanged = true;
+		//if (invManager->isEnabled() && invManager->autoDisable) invManager->setEnabled(false);
+		//if (killaura->isEnabled() && killaura->autoDisable) killaura->setEnabled(false);
+	}
+
+	//basicly make inv cleaner not clean when in chests and shit
+	//if (strcmp(screenName.c_str(), "small_chest_screen") == 0 || strcmp(screenName.c_str(), "large_chest_screen") == 0 || strcmp(screenName.c_str(), "ender_chest_screen") == 0 || strcmp(screenName.c_str(), "shulker_box_screen") == 0)
+		//if(invMod->isEnabled()) invMod->doTheShit = false; else if (invMod->isEnabled()) invMod->doTheShit = true;
+
+	if (strcmp(screenName.c_str(), "inventory_screen") == 0 || strcmp(screenName.c_str(), "small_chest_screen") == 0 || strcmp(screenName.c_str(), "large_chest_screen") == 0 || strcmp(screenName.c_str(), "ender_chest_screen") == 0 || strcmp(screenName.c_str(), "shulker_box_screen") == 0) {
+		/*
+		static auto killauraMod = moduleMgr->getModule<Killaura>();
+		static auto aidMod = moduleMgr->getModule<ChestStealer>();
+		static auto invMod = moduleMgr->getModule<InvManager>();
+		string len = "disable cheststealer  ";
+		//string killaura = "    Disable Killaura";
+		//string invManager = "  Disable InvManager";
+		//string chestStealer = " Disable ChestStealer";
+
+		float buttonLen = DrawUtils::getTextWidth(&len, 1) + 10;
+		vec4_t rectPos = vec4_t(6, 50, buttonLen, 62);
+		vec2_t textPos = vec2_t(rectPos.x + 3, rectPos.y + 2);
+		vec4_t rectPos2 = vec4_t(6, 30, buttonLen, 42);
+		vec2_t textPos2 = vec2_t(rectPos2.x + 3, rectPos2.y + 2);
+		vec4_t rectPos3 = vec4_t(6, 10, buttonLen, 22);
+		vec2_t textPos3 = vec2_t(rectPos3.x + 2, rectPos3.y + 2);
+
+
+		if (rectPos.contains(&mousePos) && leftClickDown) killauraMod->setEnabled(false);
+		if (rectPos2.contains(&mousePos) && leftClickDown) invMod->setEnabled(false);
+		if (rectPos3.contains(&mousePos) && leftClickDown) aidMod->setEnabled(false);
+		if (rectPos.contains(&mousePos)) DrawUtils::fillRoundRectangle(rectPos, MC_Color(128, 128, 128, 80), false);
+		else DrawUtils::fillRoundRectangle(rectPos, MC_Color(0, 0, 0, 80), false);
+		if (rectPos2.contains(&mousePos)) DrawUtils::fillRoundRectangle(rectPos2, MC_Color(128, 128, 128, 80), false);
+		else DrawUtils::fillRoundRectangle(rectPos2, MC_Color(0, 0, 0, 80), false);
+		if (rectPos3.contains(&mousePos)) DrawUtils::fillRoundRectangle(rectPos3, MC_Color(128, 128, 128, 80), false);
+		else DrawUtils::fillRoundRectangle(rectPos3, MC_Color(0, 0, 0, 80), false);
+		*/
+
+		//Pls TEst button stuffs
+		//vec4_t rectPos1 = vec4_t(6, 50, buttonLen, 62);
+		//if (HImGui.Button("Disable Killaura", vec2_t(rectPos1.x + 3, rectPos1.y + 2), true)) { if (killauraMod->isEnabled()) killauraMod->setEnabled(false); }
+
+		//DrawUtils::drawText(textPos, &killaura, MC_Color(255, 255, 255), 1, 1);
+		//DrawUtils::drawText(textPos2, &invManager, MC_Color(255, 255, 255), 1, 1);
+		//DrawUtils::drawText(textPos3, &chestStealer, MC_Color(255, 255, 255), 1, 1);
 	}
 
 	if (isHUDHidden || GameData::shouldHide() || !g_Hooks.shouldRender || !moduleMgr->isInitialized())
 		return oText(a1, renderCtx);
 
 	static auto configManager = moduleMgr->getModule<ConfigManagerMod>();
-	static auto notificationsMod = moduleMgr->getModule<Notifications>();
+	//static auto notificationsMod = moduleMgr->getModule<Notifications>();
 	static auto clickGUIMod = moduleMgr->getModule<ClickGUIMod>();
 
 	// HudEditor stuff
@@ -503,11 +548,84 @@ __int64 Hooks::RenderText(__int64 a1, C_MinecraftUIRenderContext* renderCtx) {
 		// Main Menu
 		string screenName(g_Hooks.currentScreenName);
 		if (strcmp(screenName.c_str(), "start_screen") == 0) {
-			float wtextWid = DrawUtils::getTextWidth(&string("Victory++"), 2.f);
+			/*
+			auto white = string(WHITE);
+			auto gray = string(GRAY);
+			auto bold = string(BOLD);
+
+			string add = gray + "[+] " + string(RESET);
+			string remove = gray + "[-] " + string(RESET);
+			string fix = gray + "[*] " + string(RESET);
+
+			string changeLog = (gray + bold + string("Changelogs") + ": \n" + RESET +
+				gray + bold + string("V2.1") + ": \n" + RESET +
+				add + "Added Separation slider for colors in Interface \n" +
+				fix + "Scaffold Extend now works on Hive mode \n" +
+				add + "Added Smoothing slider to Killaura \n" +
+				fix + "Fixed Nametags bug \n" +
+				fix + "Fixed 30+ bugs \n" +
+				"\n" +
+				//gray + bold + interfaceMod->versionStr + ": \n" + RESET +
+				gray + bold + "General: \n" + RESET +
+				add + "Added AutoBridgeWin to AutoHive (wip) \n" +
+				fix + "Increased the max speed of SpeedMine\n" +
+				add + "Added HudEditor option for ClickGUI \n" +
+				fix + "HUD now hides when F1 is pressed \n" +
+				fix + "Updated Changelogs Design \n" +
+				add + "Recoded HackerDetector \n" +
+				fix + "Fixed ClickTP crashing \n" +
+				add + "Added FastUse Module \n" +
+				fix + "Recoded TPAura (wip) \n" +
+				fix + "Fixed Aimbot crashing \n" +
+				fix + "Fixed several bugs \n" +
+				"\n" +
+				gray + bold + "InvManager: \n" + RESET +
+				fix + "Fixed not putting on certain armor \n" +
+				fix + "Swing is now server-sided \n" +
+				"\n" +
+				gray + bold + "Scaffold: \n" + RESET +
+				fix + "Made Extend more customizable \n" +
+				fix + "Fixed Extend when strafing \n" +
+				fix + "Fixed Hive Tower \n" +
+				fix + "Fixed LockY \n" +
+				"\n" +
+				gray + bold + "Speed: \n" + RESET +
+				fix + "Fixed Hive and HiveSafe \n" +
+				add + "Added Boost Mode \n" +
+				remove + "Removed HiveLow \n" +
+				"\n" +
+				gray + bold + "Step: \n" + RESET +
+				fix + "Fixed Settings not saving properly \n" +
+				remove + "Removed Motion Mode \n"
+				);
+
+			*/
+			float wtextWid = DrawUtils::getTextWidth(&string("NoHaveHand Client"), 2.f);
+			//float size = g_Data.getClientInstance()->getGuiData()->widthGame / g_Data.getClientInstance()->getGuiData()->heightGame - 1.7769f; // interesting
+			//DrawUtils::drawText(vec2_t(5, 5), &changeLog, MC_Color(255, 255, 255), 0.669, 1, true);
 			auto interfaceColor = ColorUtil::interfaceColor(1);
 			vec2_t textPosition = vec2_t(5.f, static_cast<float>(wid.y - wid.y + 7));
-			DrawUtils::drawText(textPosition, &string("Victory++"), MC_Color(interfaceColor), 1.5f, 1.f, true);
+			DrawUtils::drawText(textPosition, &string("NoHaveHand Client"), MC_Color(interfaceColor), 1.5f, 1.f, true);
+
+			// Draw the credits section
+			vec2_t creditsPosition = textPosition;
+			creditsPosition.y += 25.f;
+			float creditsFontSize = 1.2f;
+			float namesFontSize = 0.6f;
+
+			DrawUtils::drawText(creditsPosition, &string("Credits"), MC_Color(interfaceColor), creditsFontSize, 1.f, true);
+			DrawUtils::drawText(vec2_t(creditsPosition.x, creditsPosition.y + 20.f), &string("Tony"), MC_Color(interfaceColor), namesFontSize, 1.f, true);
+			DrawUtils::drawText(vec2_t(creditsPosition.x, creditsPosition.y + 40.f), &string("Thaiz"), MC_Color(interfaceColor), namesFontSize, 1.f, true);
+			DrawUtils::drawText(vec2_t(creditsPosition.x, creditsPosition.y + 60.f), &string("Rea"), MC_Color(interfaceColor), namesFontSize, 1.f, true);
+
 			DrawUtils::fillRectangle(vec4_t(0.f, 0.f, g_Data.getClientInstance()->getGuiData()->widthGame, g_Data.getClientInstance()->getGuiData()->heightGame), MC_Color(interfaceColor), 0.03f);
+
+
+
+
+
+
+
 		}
 		else {
 			shouldRenderTabGui = interfaceMod->tabGUI && interfaceMod->isEnabled();
@@ -533,6 +651,53 @@ __int64 Hooks::RenderText(__int64 a1, C_MinecraftUIRenderContext* renderCtx) {
 	if (shouldPostRender) moduleMgr->onPostRender(renderCtx);
 	HImGui.endFrame();
 	DrawUtils::flush();
+
+	/*
+	// Draw Notifications
+	NotificationManager notification;
+	if (notificationsMod->isEnabled() && g_Hooks.shouldRender) {
+		vec2_t windowSize = g_Data.getClientInstance()->getGuiData()->windowSize;
+		vec2_t pos;
+
+		auto notifications = notification.getList();
+		float yOffset = windowSize.y;
+
+		if (arraylist->invert) yOffset = 60;
+		//if (arraylist->invert && !interfaceMod->release) yOffset = 30;
+		//if (!arraylist->invert && !interfaceMod->release) yOffset = windowSize.y - 30;
+
+		for (auto& notification : notifications) {
+			notification->fade();
+			if (notification->fadeTarget == 1 && notification->duration <= 0 && notification->duration > -1) notification->fadeTarget = 0;
+			else if (notification->duration > 0 && notification->fadeVal > 0.9f) notification->duration -= 1.f / 60;
+
+			float textSize = 1.f;
+			float textPadding = 1.f * textSize;
+			float textHeight = 22.0f * textSize;
+
+			string message = notification->message + " (" + to_string((int)notification->duration) + string(".") + to_string((int)(notification->duration * 10) - ((int)notification->duration * 10)) + ")";
+			string title = string(BOLD) + notification->title + string(RESET);
+			string textStr = " " + title + "\n" + message;
+
+			float textWidth = DrawUtils::getTextWidth(&message, textSize);
+			float xOffset = windowSize.x - textWidth;
+
+			vec4_t rectPos = vec4_t(xOffset - 6.f, yOffset, windowSize.x + (textPadding * 2.f), yOffset + textPadding * 2.f + textHeight);
+			vec2_t textPos = vec2_t(rectPos.x + 4.f, rectPos.y + 2.f);
+			if (notification->duration > 1.f) {
+				DrawUtils::fillRoundRectangle(rectPos, MC_Color(0, 0, 0, notificationsMod->opacity), true);
+				DrawUtils::drawText(textPos, &textStr, MC_Color(255, 255, 255), textSize, 1.f, true);
+			}
+
+			if (notification->isOpen) {
+				if (arraylist->invert) yOffset += 36; else yOffset -= 36;
+			}
+		}
+	}
+	DrawUtils::flush();
+	*/
+
+	return retval;
 }
 
 float* Hooks::Dimension_getFogColor(__int64 _this, float* color, __int64 a3, float a4) {
@@ -587,7 +752,7 @@ void Hooks::ChestBlockActor_tick(C_ChestBlockActor* _this, void* a) {
 	static auto* chestESP = moduleMgr->getModule<ChestESP>();
 	static auto* phase = moduleMgr->getModule<Phase>();
 
-	if (_this != nullptr && phase->isEnabled()) GameData::addChestToList(_this);
+	//if (_this != nullptr && phase->isEnabled() && phase->mode.getSelectedValue() == 1) GameData::addChestToList(_this);
 	if (_this != nullptr && chestESP->isEnabled()) GameData::addChestToList(_this);
 }
 
@@ -757,6 +922,49 @@ void Hooks::LoopbackPacketSender_sendToServer(C_LoopbackPacketSender* a, Packet*
 			return;
 		}
 	}
+
+	/*
+	if (disabler->isEnabled()) {
+		if (disabler->mode.getSelectedValue() == 1 || disabler->mode.getSelectedValue() == 2) {
+			if (packet->isInstanceOf<NetworkLatencyPacket>()) {
+				return;
+			}
+
+			if (packet->isInstanceOf<C_MovePlayerPacket>()) {
+				PlayerAuthInputPacket* authInputPacket = reinterpret_cast<PlayerAuthInputPacket*>(packet);
+				if (disabler->mode.getSelectedValue() == 2) {
+					if (disabler->tick % (disabler->ticks * disabler->multiplier) == 0) {
+						authInputPacket->pos.x = -0.911;
+						authInputPacket->pos.z = -0.911;
+					}
+
+					if (disabler->tick % disabler->ticks != 0) {
+						return;
+					}
+				}
+			}
+		}
+
+		// Mineplex
+		if (disabler->mode.getSelectedValue() == 3) {
+			if (packet->isInstanceOf<NetworkLatencyPacket>()) {
+				return;
+			}
+
+			if (packet->isInstanceOf<C_MovePlayerPacket>()) {
+				C_MovePlayerPacket* movePacket = reinterpret_cast<C_MovePlayerPacket*>(packet);
+				if (disabler->mode.getSelectedValue() == 2) {
+					if (disabler->tick % (disabler->ticks * disabler->multiplier) == 0) {
+						movePacket->Position.x = -0.911;
+						movePacket->Position.y = -0.911;
+						movePacket->Position.z = -0.911;
+					}
+				}
+			}
+		}
+	}
+	*/
+
 	moduleMgr->onSendPacket(packet);
 
 	oFunc(a, packet);
@@ -810,10 +1018,6 @@ void Hooks::GameMode_startDestroyBlock(C_GameMode* _this, vec3_ti* a2, uint8_t f
 				}
 			}
 		}
-		return;
-	}
-	if (speedMine->isEnabled() && speedMine->instant) {
-		_this->destroyBlock(a2, face);
 		return;
 	}
 
@@ -920,6 +1124,7 @@ void Hooks::chatLogHookFunc(__int64 a1, TextHolder* msg, uint32_t a2) {
 
 	//static auto deathEffects = moduleMgr->getModule<DeathEffects>();
 
+	
 	static auto player = g_Data.getLocalPlayer();
 
 	if (message.getText() != nullptr && player != nullptr) {
@@ -931,6 +1136,9 @@ void Hooks::chatLogHookFunc(__int64 a1, TextHolder* msg, uint32_t a2) {
 
 		string name = player->getNameTag()->getText();
 		name = Utils::sanitize(name);
+
+		// KillInsults
+		
 	}
 	return oFunc(a1, msg, a2);
 }

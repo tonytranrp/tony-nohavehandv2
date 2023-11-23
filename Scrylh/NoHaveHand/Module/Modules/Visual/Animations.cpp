@@ -57,7 +57,7 @@ void Animations::onTick(C_GameMode* gm) {
 	requireswing = false;
 
 	auto slot = player->getSupplies()->inventory->getItemStack(player->getSupplies()->selectedHotbarSlot);
-	shouldBlock = slot != nullptr && slot->item != nullptr && g_Data.isRightClickDown() || slot != nullptr && slot->item != nullptr && !killaura->targetListEmpty && killaura->isEnabled();
+	shouldBlock = slot != nullptr && slot->item != nullptr || slot != nullptr && slot->item != nullptr && !killaura->targetListEmpty && killaura->isEnabled();
 	isAttacking = g_Data.isLeftClickDown() || (!killaura->targetListEmpty && killaura->isEnabled());
 
 	if (type.getSelectedValue() == 3) {

@@ -7,6 +7,7 @@ AutoFallBlock::AutoFallBlock() : IModule(0x0, Category::COMBAT, "AutoFallBlock (
 	BlockID.addEntry("Sand", 2);
 	BlockID.addEntry("Gravel", 3);
 	BlockID.addEntry("Powder", 4);
+	BlockID.addEntry("TNT", 5);
 	this->registerIntSetting("Obsidian Height", &this->obsiheight, this->obsiheight, 3, 8);
 	this->registerIntSetting("Fall Block Height", &this->fallblockheight, this->fallblockheight, 3, 8);
 	this->registerIntSetting("range", &this->range, this->range, 3, 12);
@@ -415,6 +416,18 @@ void AutoFallBlock::onTick(C_GameMode* gm) {
 					}
 					if (BlockID.getSelectedValue() == 4) {
 						if (stack->getItem()->itemId == 252) {
+							supplies->selectedHotbarSlot = n;
+							break;
+						}
+					}
+					if (BlockID.getSelectedValue() == 5) {
+						if (stack->getItem()->itemId == 46) {
+							supplies->selectedHotbarSlot = n;
+							break;
+						}
+					}
+					if (BlockID.getSelectedValue() == 5) {
+						if (stack->getItem()->itemId == 299) {
 							supplies->selectedHotbarSlot = n;
 							break;
 						}

@@ -1,4 +1,5 @@
 #include "Spammer.h"
+
 #include "../pch.h"
 
 Spammer::Spammer() : IModule(0, Category::OTHER, "Spams a message in a specified delay") {

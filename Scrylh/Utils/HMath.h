@@ -443,6 +443,19 @@ struct vec4_t {
 		return true;
 	};
 };
+struct Vec3Hash {
+	std::size_t operator()(const vec3_ti& v) const {
+		std::hash<int> hasher;
+		std::size_t seed = 0;
+
+		seed ^= hasher(v.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		seed ^= hasher(v.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		seed ^= hasher(v.z) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+		return seed;
+	}
+};
+
 struct vec2 {
 
 	union {
@@ -904,7 +917,14 @@ struct AABB {
 			   aabb.upper.z > lower.z && upper.z > aabb.lower.z;
 	}
 };
+struct AABBHash {
+	std::size_t operator()(const AABB& aabb) const {
+		std::size_t h1 = Vec3Hash{}(aabb.lower);
+		std::size_t h2 = Vec3Hash{}(aabb.upper);
 
+		return h1 ^ (h2 << 1);
+	}
+};
 inline int random(int start, int end) {
 	return rand() % (end - start + 1) + start;
 }
